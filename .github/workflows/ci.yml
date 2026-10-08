@@ -1,0 +1,28 @@
+name: CI
+
+# The test suite stands a local fake provider in for a real one, so this job
+# needs no secrets and spends nothing. That is the point of
+# test/support/fake-upstream.ts.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+
+      # Boots the real CLI against a stand-in provider and asserts the whole
+      # path: forward, meter, block, report. Needs curl, which the runner has.
+      - run: bash scripts/e2e-check.sh

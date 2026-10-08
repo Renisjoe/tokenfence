@@ -1,0 +1,366 @@
+<!doctype html>
+<!--
+  TokenFence landing page — one static file, no build step, no CDN, no external
+  requests. Deploys as-is to Cloudflare Pages, GitHub Pages, Netlify or Vercel.
+
+  BEFORE DEPLOY: the GitHub username appears four times below — the nav link,
+  the hero button, the quickstart clone URL and the footer link. From the
+  project root:
+
+      node scripts/configure.mjs <your-github-username>
+
+  That also rewrites the repo link in README.md and the docs, so there is only
+  ever one thing to fill in.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TokenFence — budget enforcement for LLM calls</title>
+    <meta
+      name="description"
+      content="TokenFence is an open-source OpenAI-compatible proxy that meters every LLM call against a per-key budget and refuses the next request once the budget is gone. No account, no telemetry, one local ledger."
+    />
+    <meta name="theme-color" content="#0a0c11" />
+    <link rel="canonical" href="https://tokenfence.eu.org/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://tokenfence.eu.org/" />
+    <meta property="og:title" content="TokenFence — budget enforcement for LLM calls" />
+    <meta
+      property="og:description"
+      content="An open-source proxy that prices every LLM call and returns 429 instead of a surprise invoice."
+    />
+    <meta name="twitter:card" content="summary" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%230a0c11'/%3E%3Cpath d='M26 30v40M26 50h28M74 30v40M54 50h20' stroke='%23ffd479' stroke-width='11' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <style>
+      :root {
+        --bg: #0a0c11;
+        --panel: #10131b;
+        --panel-2: #151924;
+        --line: #222836;
+        --text: #e9edf6;
+        --muted: #949fb4;
+        --accent: #ffd479;
+        --accent-ink: #241a02;
+        --bad: #ff9a9a;
+        --ok: #7ee0b0;
+        --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        line-height: 1.62;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      .wrap { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: rgba(10, 12, 17, 0.9);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--line);
+      }
+      .bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px 20px;
+        flex-wrap: wrap;
+        min-height: 58px;
+        /* Longhands on purpose: this element also carries .wrap, and a
+           shorthand here would cancel its horizontal padding. */
+        padding-top: 10px;
+        padding-bottom: 10px;
+      }
+      .brand { font-family: var(--mono); font-weight: 700; letter-spacing: -0.3px; }
+      .brand span { color: var(--accent); }
+      nav { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+      nav a { color: var(--muted); text-decoration: none; font-size: 14px; }
+      nav a:hover { color: var(--text); }
+
+      /* Keep the bar to one line on a phone: the two sections a reader can also
+         reach by scrolling are the ones that go. */
+      @media (max-width: 620px) {
+        nav a.secondary { display: none; }
+        /* Terminal output is the proof on this page, so let it fit rather than
+           make a phone reader scroll sideways to reach the point. */
+        pre { font-size: 11px; padding: 13px 14px; }
+        th, td { padding: 8px 6px; }
+      }
+
+      .hero { padding: 76px 0 4px; }
+      .tag {
+        display: inline-block;
+        font-family: var(--mono);
+        font-size: 12px;
+        letter-spacing: 0.6px;
+        text-transform: uppercase;
+        color: var(--accent);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 3px 12px;
+        margin-bottom: 20px;
+      }
+      h1 { font-size: clamp(31px, 5.6vw, 50px); line-height: 1.14; letter-spacing: -1.2px; margin: 0 0 18px; }
+      h1 em { font-style: normal; color: var(--accent); }
+      .lede { font-size: 18px; color: var(--muted); max-width: 64ch; }
+
+      h2 {
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        color: var(--muted);
+        margin: 60px 0 14px;
+        font-weight: 700;
+      }
+      h3 { margin: 0 0 6px; font-size: 15px; }
+      p { margin: 0 0 14px; }
+      a { color: var(--accent); }
+
+      .actions { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 28px; }
+      .btn {
+        display: inline-block;
+        padding: 11px 18px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1px solid var(--line);
+        color: var(--text);
+        transition: transform 0.12s ease;
+      }
+      .btn:hover { transform: translateY(-1px); }
+      .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+      pre {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px 18px;
+        overflow-x: auto;
+        font-family: var(--mono);
+        font-size: 12.5px;
+        line-height: 1.7;
+        margin: 0 0 16px;
+      }
+      code { font-family: var(--mono); font-size: 0.92em; }
+      p code, li code, td code {
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 1px 5px;
+      }
+      .dim { color: var(--muted); }
+      .bad { color: var(--bad); }
+      .ok { color: var(--ok); }
+      pre.refuse { border-left: 3px solid var(--bad); }
+
+      .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+      .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 15px 17px; }
+      .card p { margin: 0; color: var(--muted); font-size: 13.5px; }
+
+      ul { padding-left: 20px; color: var(--muted); }
+      ul li { margin-bottom: 6px; }
+      strong { color: var(--text); }
+
+      table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+      th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+      th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.8px; }
+      td:first-child { font-family: var(--mono); white-space: nowrap; }
+
+      .note {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--accent);
+        border-radius: 8px;
+        padding: 14px 16px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      footer { border-top: 1px solid var(--line); margin-top: 68px; padding: 26px 0 46px; color: var(--muted); font-size: 13.5px; }
+      footer a { color: var(--muted); }
+      footer a:hover { color: var(--text); }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="wrap bar">
+        <span class="brand">token<span>fence</span></span>
+        <nav>
+          <a class="secondary" href="#how">How it works</a>
+          <a href="#start">Quickstart</a>
+          <a class="secondary" href="#status">Status</a>
+          <a href="https://github.com/renisjoe/tokenfence">GitHub</a>
+        </nav>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section class="hero">
+        <span class="tag">Open source · self-hosted · MIT</span>
+        <h1>The bill arrives later.<br />The loop ran <em>all night</em>.</h1>
+        <p class="lede">
+          TokenFence is a proxy you run in front of any OpenAI-compatible API. It prices every
+          call, writes it to a local ledger, and returns <strong>429</strong> to the next request
+          once that key's budget is spent — so a runaway retry loop stops at your ceiling
+          instead of your provider's invoice.
+        </p>
+        <div class="actions">
+          <a class="btn primary" href="https://github.com/renisjoe/tokenfence">Read the source</a>
+          <a class="btn" href="#start">Quickstart</a>
+        </div>
+      </section>
+
+      <h2>The problem</h2>
+      <p>
+        A retry loop, a bad <code>while</code> condition, and an eval harness left running
+        overnight look identical from the provider's side: a lot of completed requests, all
+        billed. A dashboard tells you afterwards. Nothing in the request path says
+        <em>stop</em>. That is the gap TokenFence fills — it sits between your code and the
+        provider, and it is the thing that says no.
+      </p>
+
+      <h2 id="how">What it does</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>Per-key budgets</h3>
+          <p>A daily and a monthly ceiling in dollars, per key. Whichever runs out first binds.</p>
+        </div>
+        <div class="card">
+          <h3>Refuses, doesn't warn</h3>
+          <p>Over budget means <code>429 budget_exhausted</code>, and the call is never forwarded.</p>
+        </div>
+        <div class="card">
+          <h3>Pre-flight on max_tokens</h3>
+          <p>If the remaining budget cannot cover the requested <code>max_tokens</code>, it is refused before a cent is spent.</p>
+        </div>
+        <div class="card">
+          <h3>Honest about gaps</h3>
+          <p>A provider that reports no usage is recorded at zero cost <em>and</em> flagged in a response header — never silently free.</p>
+        </div>
+      </div>
+
+      <h2>A refusal, in full</h2>
+      <p>
+        From a local run against a stand-in provider, with a <code>$0.001</code> daily budget and
+        a call that cost <code>$0.0025</code>. Notice the last header: it has already gone
+        negative, so the next call is the one that gets stopped.
+      </p>
+      <pre><code>HTTP/1.1 200 OK
+x-tokenfence-cost-usd: 0.002500
+x-tokenfence-prompt-tokens: 1000
+x-tokenfence-completion-tokens: 500
+x-tokenfence-remaining-usd: <span class="bad">-0.001500</span></code></pre>
+      <p>The next call on that key, before it ever reaches the provider:</p>
+      <pre class="refuse"><code>{"error":{"message":"key \"ci\" is out of budget (daily budget $0.001000,
+spent today $0.002500; monthly budget $20.000000, spent this month
+$0.002500). The cap resets at the next UTC day or month boundary.",
+"type":"rate_limit_error","code":"<span class="bad">budget_exhausted</span>"}}
+
+HTTP 429</code></pre>
+      <p class="dim">
+        Errors use OpenAI's error shape, so a client that already renders provider errors
+        renders these too. Budgets reset on <strong>UTC</strong> day and month boundaries.
+      </p>
+
+      <h2>Configuration is the whole setup</h2>
+      <pre><code>{
+  "listen": { "host": "127.0.0.1", "port": 8787 },
+  "upstream": {
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKeyEnv": "OPENAI_API_KEY"
+  },
+  "keys": [
+    { "name": "ci",    "key": "tf_ci_...",    "dailyUsdBudget": 2,   "monthlyUsdBudget": 20 },
+    { "name": "local", "key": "tf_local_...", "dailyUsdBudget": 0.5 }
+  ],
+  "models": {
+    "gpt-4o-mini": { "inputPer1M": 0.15, "outputPer1M": 0.6 }
+  },
+  "defaultPrice": { "inputPer1M": 1, "outputPer1M": 3 }
+}</code></pre>
+      <p class="dim">
+        <code>apiKeyEnv</code> holds the <em>name</em> of the environment variable your provider
+        key lives in — the key itself never goes in this file. An unlisted model falls back to
+        <code>defaultPrice</code> rather than being metered as free.
+      </p>
+
+      <h2>Endpoints</h2>
+      <table>
+        <thead>
+          <tr><th>Route</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>POST /v1/chat/completions</td><td>Metered, budget-enforced pass-through to your provider.</td></tr>
+          <tr><td>GET /v1/usage</td><td>The calling key's own spend and remaining headroom.</td></tr>
+          <tr><td>GET /healthz</td><td>Liveness and version.</td></tr>
+        </tbody>
+      </table>
+
+      <h2 id="start">Quickstart</h2>
+      <pre><code><span class="dim"># Node 22.18+ — runs the TypeScript sources directly, no build step</span>
+git clone https://github.com/renisjoe/tokenfence
+cd tokenfence &amp;&amp; npm install
+
+<span class="dim"># 41 tests and a full CLI smoke check: no API key, no network, no spend</span>
+npm run typecheck &amp;&amp; npm test
+bash scripts/e2e-check.sh
+
+<span class="dim"># point it at a provider</span>
+cp examples/tokenfence.config.json tokenfence.config.json
+export OPENAI_API_KEY=sk-...
+npm start</code></pre>
+
+      <h2>What it does not do</h2>
+      <ul>
+        <li><strong>No streaming.</strong> A streamed response cannot be metered, so <code>"stream": true</code> is refused rather than allowed to spend invisibly. Reconciliation after the fact is the first roadmap item.</li>
+        <li><strong>No Anthropic shape.</strong> The proxy speaks the OpenAI chat-completions protocol, which is what makes it a drop-in across OpenAI, Groq, Together, Fireworks, DeepSeek, OpenRouter, Ollama, vLLM and private gateways. <code>/v1/messages</code> is not implemented.</li>
+        <li><strong>No account, no telemetry.</strong> The ledger is a JSON file next to your config. Nothing leaves the machine except the upstream call you configure.</li>
+      </ul>
+
+      <h2 id="status">Status</h2>
+      <p>
+        <strong>Early stage, and being upfront about it.</strong> One maintainer, one repository,
+        no releases, and no package on npm — <code>npx tokenfence</code> will not work today, so
+        clone it. There are no users to report, because this was just built. What is verified is
+        that the parts that exist work: a clean typecheck, 41 passing tests, and an end-to-end
+        check that boots the real CLI against a stand-in provider and asserts the whole path —
+        forward, meter, block, report.
+      </p>
+      <div class="note">
+        <strong>Roadmap:</strong> streaming with usage reconciliation · Anthropic
+        <code>/v1/messages</code> · a cost estimate for a batch before it is sent · threshold
+        warnings at 80%. A hosted version is the intended direction, but the open-source proxy is
+        the whole product today, and it is complete enough to run.
+      </div>
+
+      <h2>Tech</h2>
+      <p>
+        Node and TypeScript. <strong>No runtime dependencies</strong> — the HTTP server, the
+        ledger, the argument parsing and the cost maths are all standard library. MIT licensed.
+      </p>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        TokenFence · MIT ·
+        <a href="https://github.com/renisjoe/tokenfence">github</a> ·
+        <a href="mailto:hello@tokenfence.eu.org">hello@tokenfence.eu.org</a>
+      </div>
+    </footer>
+  </body>
+</html>

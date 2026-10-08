@@ -1,0 +1,11 @@
+node_modules/
+.env
+.env.local
+*.log
+
+# Local usage ledger written by the proxy. Never commit real spend data.
+tokenfence-usage.json
+*.usage.json
+
+dist/
+coverage/

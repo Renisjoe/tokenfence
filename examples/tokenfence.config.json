@@ -1,0 +1,19 @@
+{
+  "listen": { "host": "127.0.0.1", "port": 8787 },
+  "upstream": {
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKeyEnv": "OPENAI_API_KEY",
+    "timeoutMs": 60000
+  },
+  "keys": [
+    { "name": "ci", "key": "tf_ci_replace_me", "dailyUsdBudget": 2, "monthlyUsdBudget": 20 },
+    { "name": "local", "key": "tf_local_replace_me", "dailyUsdBudget": 0.5 }
+  ],
+  "models": {
+    "gpt-4o-mini": { "inputPer1M": 0.15, "outputPer1M": 0.6 },
+    "gpt-4o": { "inputPer1M": 2.5, "outputPer1M": 10 }
+  },
+  "defaultPrice": { "inputPer1M": 1, "outputPer1M": 3 },
+  "enforce": { "preflightMaxTokens": true },
+  "usageFile": "tokenfence-usage.json"
+}

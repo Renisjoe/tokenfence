@@ -1,0 +1,37 @@
+{
+  "name": "tokenfence",
+  "version": "0.1.0",
+  "description": "An open-source budget guardian for LLM apps: an OpenAI-compatible proxy that enforces per-key token and cost budgets, so one runaway loop cannot run up a bill.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "bin": {
+    "tokenfence": "./bin/tokenfence.mjs"
+  },
+  "files": [
+    "bin",
+    "src"
+  ],
+  "scripts": {
+    "start": "node src/cli.ts serve --config examples/tokenfence.config.json",
+    "report": "node src/cli.ts report --config examples/tokenfence.config.json",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "keywords": [
+    "llm",
+    "openai",
+    "proxy",
+    "gateway",
+    "budget",
+    "cost-control",
+    "rate-limit",
+    "ai"
+  ],
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "typescript": "^5.9.0"
+  }
+}
