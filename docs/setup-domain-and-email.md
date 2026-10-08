@@ -44,6 +44,37 @@ Get these two straight and the rest is mechanical.
 
 ---
 
+## Step 0 — A non-Gmail address to register with
+eu.org will not accept a Gmail address as its contact, and its own form says so
+in as many words:
+
+> *"gmail.com refuses contact validation emails from EU.org as 'spam'. There is
+> nothing we can do about this. Don't use Gmail addresses here, you will not be
+> able to valide your contact."*
+
+An unvalidated contact cannot request a domain, so this comes before everything
+else. Gmail is the **only** provider eu.org flags — the form names no other, so
+Outlook, Yahoo, Proton, iCloud and Zoho are all fine.
+
+Neither of your obvious options can fill this role:
+
+- Your **custom-domain mailbox** needs the domain approved first — that is the
+  loop this step exists to break.
+- **Cloudflare has no mailbox product.** Email Routing only forwards into an
+  inbox you already have, and it will not host a `eu.org` zone either.
+
+Create a free **personal** Zoho account instead — no domain required:
+
+- <https://mail.zoho.com/signup> → choose **personal**, not business
+- You get `yourname@zohomail.com`, or a regional variant (`.in`, `.eu`)
+  depending on where you sign up from
+- **A mobile number is required** for personal signup
+- India, the EU and the US are all covered by Zoho's Forever Free plan, which is
+  what step 5 depends on
+
+Use it as the eu.org contact. It is a bootstrap tool only — the address that goes
+on an application is `hello@tokenfence.eu.org`, set up in step 5.
+
 ## Step 1 — Register the domain at nic.eu.org
 
 Read the two policy pages before filing, because they change what you can ask
@@ -61,14 +92,29 @@ Two things to decide first:
   projects) is the natural fallback if `tokenfence.eu.org` is refused.
 - **Nameservers, before you apply.** Registration requires nameservers already
   configured for the name you are requesting. Do step 2 first, then come back.
+- **Direct registrations get NS records only.** The direct-eu.org policy states
+  that only domain delegation is provided, so *every* MX, TXT and CNAME record
+  for Zoho and GitHub lives at the nameserver you supply. That is what makes
+  step 2 mandatory rather than optional.
 
 Then:
 
-1. Create an account at <https://nic.eu.org/> and request the domain, supplying
-   the deSEC nameservers from step 2.
-2. Wait for the validation email. **This is the unpredictable part**: it needs a
-   human, and reports range from a couple of days to several months. Nothing else
-   in this document is blocked on it — do steps 3 and 4 meanwhile.
+1. Create the contact at <https://nic.eu.org/arf/en/contact/create/> using the
+   non-Gmail address from step 0. Required: name, e-mail, address lines 1 and 2,
+   country, password, the *policy* tickbox. Leave *private* ticked so your
+   address stays out of public WHOIS.
+2. Click the validation link in the email eu.org sends. Without it you cannot
+   log in or request anything — and if you used Gmail, that email never arrives.
+3. Request `tokenfence.eu.org` at <https://nic.eu.org/arf/>, supplying the
+   nameservers from step 2. `tokenfence` is 10 characters, so it clears the
+   four-character threshold for automatic registration, but the policy reserves
+   the right to refuse direct names — `tokenfence.net.eu.org` is the fallback.
+4. Wait for approval. **This is the unpredictable part**: it needs a human, and
+   reports range from a couple of days to several months. Nothing else in this
+   document is blocked on it — do steps 3 and 4 meanwhile.
+
+Checked against the public resolver before filing: neither `tokenfence.eu.org`
+nor `tokenfence.net.eu.org` has NS records, so both are free.
 
 ## Step 2 — DNS at deSEC
 
@@ -78,21 +124,19 @@ Then:
 4. Leave the records empty for now; steps 3 and 4 add them.
 
 Notes: deSEC requires a small dynamic-DNS-style token for API use, but the web
-interface is enough here. If deSEC is unavailable in your region, Hurricane
-Electric's free DNS (<https://dns.he.net/>) is the equivalent fallback — it also
-lets you set arbitrary MX and TXT records, which is what Zoho needs.
+interface is enough here. Hurricane Electric's free DNS
+(<https://dns.he.net/>) is the other option and is in fact the longest-proven
+pairing with eu.org — a decade-old account reports *"set up DNS using he.net and
+never had any issues"*. Either host works; both let you set the arbitrary MX and
+TXT records that Zoho needs, which is the reason Cloudflare was ruled out.
 
 ## Step 3 — GitHub repo and Pages
 
-The repository is already initialised and committed locally (34 files, commit
-`3d639f0`), so there is nothing to stage. You only need to publish it — create an
-**empty** repo named `tokenfence` on GitHub (no README, no .gitignore), then:
-
-```bash
-cd tokenfence
-git remote add origin https://github.com/renisjoe/tokenfence.git
-git push -u origin main
-```
+Already done — no action needed. <https://github.com/Renisjoe/tokenfence>
+exists, is public, and `main` is pushed and in sync, with CI green on both
+commits. The site is live at
+<https://renisjoe.github.io/tokenfence/>. Come back to this step only once the
+domain is registered.
 
 Then:
 
