@@ -84,14 +84,13 @@ lets you set arbitrary MX and TXT records, which is what Zoho needs.
 
 ## Step 3 — GitHub repo and Pages
 
+The repository is already initialised and committed locally (34 files, commit
+`3d639f0`), so there is nothing to stage. You only need to publish it — create an
+**empty** repo named `tokenfence` on GitHub (no README, no .gitignore), then:
+
 ```bash
 cd tokenfence
-git init -b main
-git add .
-git commit -m "TokenFence: budget enforcement for OpenAI-compatible LLM calls"
-
-# create an EMPTY repo named "tokenfence" on GitHub first, then:
-git remote add origin https://github.com/YOUR-USER/tokenfence.git
+git remote add origin https://github.com/renisjoe/tokenfence.git
 git push -u origin main
 ```
 
@@ -102,7 +101,7 @@ Then:
 2. **Settings → Pages → Custom domain:** enter your eu.org name. GitHub writes it
    into `site/CNAME` (already committed — keep the two in sync).
 3. At deSEC, add the record GitHub shows. For a subdomain such as
-   `tokenfence.eu.org` that is a **`CNAME` to `YOUR-USER.github.io`** — the four
+   `tokenfence.eu.org` that is a **`CNAME` to `renisjoe.github.io`** — the four
    `A` records are only for apex domains, which does not apply to a `eu.org`
    name.
 4. Wait for the certificate, then tick **Enforce HTTPS**.
@@ -141,21 +140,28 @@ Three checks, in this order. Each one catches a different failure:
    before you use this address on an application — mail that lands in spam is
    indistinguishable from a dead project.
 
-## Step 6 — Point the project at your real account
+## Step 6 — Point the project at your real account — already done
 
-The GitHub username is the only placeholder left in this project, and it is
-deliberately the same string everywhere so it can be swapped in one command:
+The GitHub username is the only placeholder this project ever has, and it is
+deliberately the same string everywhere so it can be swapped in one command. It
+has already been set to **renisjoe**: all five references (four in
+`site/index.html`, one in `README.md`) read `github.com/renisjoe/tokenfence`.
+
+Run it again only to move onto a different account or domain:
 
 ```bash
-node scripts/configure.mjs YOUR-GITHUB-USERNAME
+node scripts/configure.mjs <github-username> [domain]
 ```
 
-That rewrites the GitHub links in `site/index.html`, `README.md` and this file,
-and exits non-zero if it finds one it could not replace. Pass a domain as a
-second argument to move everything off the default domain at the same time:
+It rewrites the GitHub links across the project, moves the default domain if you
+pass one, and exits non-zero if it finds a placeholder it could not replace. The
+one exception is `scripts/configure.mjs` itself, which holds the placeholder as a
+constant and deliberately skips itself.
+
+So, to move everything to a bought domain in one step:
 
 ```bash
-node scripts/configure.mjs YOUR-GITHUB-USERNAME tokenfence.dev
+node scripts/configure.mjs renisjoe tokenfence.dev
 ```
 
 ---
@@ -166,10 +172,17 @@ Do not let the application sit behind a volunteer queue. Buy
 `tokenfence.dev` (about $5–10/year at Porkbun or Namecheap) and drop eu.org
 entirely — with a bought domain you use the registrar's DNS, Cloudflare Email
 Routing *does* become available for forwarding, and Zoho works the same way.
-Change two things if you switch:
 
-1. `site/CNAME` → `tokenfence.dev`
-2. the domain and `mailto:` in `site/index.html`
+Switching is one command rather than a manual sweep — it rewrites `site/CNAME`
+and every domain and `mailto:` reference in the project together, so they cannot
+drift apart:
+
+```bash
+node scripts/configure.mjs renisjoe tokenfence.dev
+```
+
+Commit the result, and remember to change the custom domain in GitHub's Pages
+settings to match.
 
 A `.dev` also simply looks more like a product than a `eu.org` name, which is
 worth something on an application — which is presumably why the plan you were
@@ -182,7 +195,10 @@ following recommended it.
 **Verified in this repository:** the tool runs, `npm run typecheck` is clean, 41
 tests pass, and `scripts/e2e-check.sh` boots the real CLI against a stand-in
 provider and asserts forward → meter → block → report. The landing page is a
-single static file with no external requests, so it cannot break on a CDN.
+single static file with no external requests, so it cannot break on a CDN, and
+it was rendered and measured rather than assumed — zero horizontal overflow, with
+the header responsive down to a 330px viewport. Nothing outside the repository —
+the domain, the DNS, the deploy, the mailbox — has been exercised at all.
 
 **Not verified — it needs your accounts, and I cannot create them:** the eu.org
 registration and its approval, the deSEC zone, the GitHub Pages deploy, the
