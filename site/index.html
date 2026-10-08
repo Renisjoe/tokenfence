@@ -3,14 +3,15 @@
   TokenFence landing page — one static file, no build step, no CDN, no external
   requests. Deploys as-is to Cloudflare Pages, GitHub Pages, Netlify or Vercel.
 
-  BEFORE DEPLOY: the GitHub username appears four times below — the nav link,
-  the hero button, the quickstart clone URL and the footer link. From the
-  project root:
+  Deployed to https://renisjoe.github.io/tokenfence/ and configured for the
+  renisjoe account. To move this onto a different account or a custom domain,
+  run from the project root:
 
-      node scripts/configure.mjs <your-github-username>
+      node scripts/configure.mjs <github-username> [domain]
 
-  That also rewrites the repo link in README.md and the docs, so there is only
-  ever one thing to fill in.
+  That rewrites every GitHub link in the site, README.md and the docs at once,
+  so they cannot drift apart. site/CNAME must then name the registered domain —
+  see docs/setup-domain-and-email.md.
 -->
 <html lang="en">
   <head>
