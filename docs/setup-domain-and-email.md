@@ -98,8 +98,12 @@ Then:
 
 1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
    `.github/workflows/pages.yml` publishes `site/` on every push to `main`.
-2. **Settings → Pages → Custom domain:** enter your eu.org name. GitHub writes it
-   into `site/CNAME` (already committed — keep the two in sync).
+2. **Settings → Pages → Custom domain:** enter your eu.org name, then add a
+   `site/CNAME` file containing exactly that domain and push. Until a domain is
+   actually registered, `site/CNAME` is deliberately **absent** from this repo —
+   a CNAME file pointing at an unregistered domain makes GitHub redirect the
+   working `github.io` URL to a host that does not resolve, which turns a live
+   site into a dead one.
 3. At deSEC, add the record GitHub shows. For a subdomain such as
    `tokenfence.eu.org` that is a **`CNAME` to `renisjoe.github.io`** — the four
    `A` records are only for apex domains, which does not apply to a `eu.org`
