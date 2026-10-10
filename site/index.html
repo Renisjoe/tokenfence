@@ -1,12 +1,10 @@
 <!doctype html>
 <!--
-  TokenFence one-page landing page. InfinityFree publishes this static folder
-  through GitHub Actions. GitHub Pages remains the existing fallback until the
-  new hosting account, domain and HTTPS certificate are verified.
-
-  The canonical and Open Graph URLs below still point to the current Pages host.
-  Change them to the custom domain only after it resolves over HTTPS. InfinityFree
-  serves this landing page only; it does not run the TokenFence Node.js proxy.
+  TokenFence one-page landing page. GitHub Actions publishes this static folder
+  to the free InfinityFree staging hostname. The .dev domain is still awaiting
+  registration, so the canonical URL below stays on the live staging hostname.
+  InfinityFree serves this landing page only; it does not run the TokenFence
+  Node.js proxy.
 -->
 <html lang="en">
   <head>
@@ -18,9 +16,9 @@
       content="TokenFence is an open-source proxy for OpenAI and Anthropic APIs that meters every LLM call against a per-key budget and refuses the next request once the budget is gone. No account, no telemetry, one local ledger."
     />
     <meta name="theme-color" content="#0a0c11" />
-    <link rel="canonical" href="https://renisjoe.github.io/tokenfence/" />
+    <link rel="canonical" href="https://tokenfence-proxy.infinityfree.me/" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://renisjoe.github.io/tokenfence/" />
+    <meta property="og:url" content="https://tokenfence-proxy.infinityfree.me/" />
     <meta property="og:title" content="TokenFence — budget enforcement for LLM calls" />
     <meta
       property="og:description"

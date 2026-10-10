@@ -1,6 +1,6 @@
 # TokenFence website, domain and email setup
 
-Current target: **InfinityFree for the static landing page**, **tokenfence-proxy.dev** for the domain, and Zoho Mail for the custom mailbox.
+Current target: **InfinityFree for the static landing page**, **tokenfence-proxy.dev** for the eventual custom domain, and Zoho Mail for a domain mailbox if its free plan is available for the account's data center. The live free staging URL is **https://tokenfence-proxy.infinityfree.me/**.
 
 ## What this setup hosts
 
@@ -12,11 +12,11 @@ The repository includes a guarded GitHub Actions workflow at **.github/workflows
 
 Keep the domain's DNS on the registrar or another DNS provider with full record support, such as Cloudflare. Do not move the domain to InfinityFree's free nameservers for this setup: InfinityFree's free DNS panel does not support arbitrary TXT records needed for Zoho verification and DKIM. You can host the website on InfinityFree while leaving authoritative DNS elsewhere.
 
-The .dev TLD is preloaded for HSTS, so browsers require HTTPS. Issue and install an SSL certificate for the domain in InfinityFree before relying on the site at **https://tokenfence-proxy.dev**.
+The .dev TLD is preloaded for HSTS, so browsers require HTTPS. The live InfinityFree subdomain already has automatic HTTPS. When **tokenfence-proxy.dev** is registered and attached to hosting, issue and install its custom-domain SSL certificate before relying on the .dev URL.
 
 ## 1. Register the domain and create hosting
 
-1. Register **tokenfence-proxy.dev** with a registrar. The name has been selected, but ownership must be completed at the registrar before DNS or email can be activated.
+1. Register **tokenfence-proxy.dev** with a registrar. The name has been selected, but it is not registered yet; ownership must be completed at the registrar before DNS or email can be activated.
 2. Create an InfinityFree account and create a hosting account using one of InfinityFree's free subdomains. InfinityFree requires an existing hosting account before a custom domain can be attached through CNAME verification.
 3. In the hosting account's Domains page, choose **Add Domain → Custom Domain** and enter **tokenfence-proxy.dev**.
 4. If the panel says the domain cannot be verified, copy the exact CNAME hostname and target that it displays. Add that record at the domain's current DNS provider, wait for it to resolve, then retry adding the domain.
@@ -75,7 +75,9 @@ Do not add Zoho TXT or MX records in the InfinityFree control panel. They belong
 
 - Netlify auto-publishing is locked and its GitHub repository connection has been removed. Its last published preview may still be reachable, but new GitHub pushes will not build or publish there.
 - GitHub Pages remains configured as the existing fallback until InfinityFree and the custom domain are verified.
-- The InfinityFree staging account is active and its FTP secrets and deploy-enable variable are configured in GitHub. The custom domain **tokenfence-proxy.dev** still needs to be registered; DNS, HTTPS, and Zoho Mail must wait for that purchase.
+- The InfinityFree staging account is active; its FTP secrets and deploy-enable variable are configured in GitHub, and the staging page is live over HTTPS. The staging `.htaccess` redirects HTTP requests to HTTPS.
+- The migration branch's latest deployment succeeded. The `.dev` domain **tokenfence-proxy.dev** is not registered yet, so it has no active DNS records and no matching email address can be created.
+- No business email is published on the landing page. Do not publish a Gmail or Outlook address as a substitute. Once a domain is owned, Cloudflare Email Routing can forward incoming mail for free; it does not provide outbound sending to arbitrary recipients on the free plan. Zoho Mail's free plan supports up to five users and one domain with web access in selected data centers, so confirm availability before choosing it.
 
 ## References
 
