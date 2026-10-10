@@ -75,7 +75,7 @@ Do not add Zoho TXT or MX records in the InfinityFree control panel. They belong
 
 - Netlify auto-publishing is locked and its GitHub repository connection has been removed. Its last published preview may still be reachable, but new GitHub pushes will not build or publish there.
 - GitHub Pages remains configured as the existing fallback until InfinityFree and the custom domain are verified.
-- The InfinityFree staging account is active; its FTP secrets and deploy-enable variable are configured in GitHub, and the staging page is live over HTTPS. The staging `.htaccess` redirects HTTP requests to HTTPS.
+- The InfinityFree staging account is active; its FTP secrets and deploy-enable variable are configured in GitHub, and the staging page is live over HTTPS. The deployment includes an `.htaccess` rule to redirect HTTP requests to HTTPS.
 - The migration branch's latest deployment succeeded. The `.dev` domain **tokenfence-proxy.dev** is not registered yet, so it has no active DNS records and no matching email address can be created.
 - No business email is published on the landing page. Do not publish a Gmail or Outlook address as a substitute. Once a domain is owned, Cloudflare Email Routing can forward incoming mail for free; it does not provide outbound sending to arbitrary recipients on the free plan. Zoho Mail's free plan supports up to five users and one domain with web access in selected data centers, so confirm availability before choosing it.
 
