@@ -75,7 +75,7 @@ The program asks for "a Claude Console account, a company email that matches you
 website's domain, and a short description of what you're building". Those depend
 on each other, so the sequence matters:
 
-1. The **domain** exists (eu.org approval).
+1. Register **tokenfence-proxy.dev** and point the website at that domain.
 2. The **mailbox** exists at that domain — see `setup-domain-and-email.md`.
 3. Create the **Claude Console account using the domain address**, not a personal
    one. You cannot register with an address that does not exist yet, and changing
@@ -93,13 +93,14 @@ only in what they signal:
 
 | Address | Reads as |
 | --- | --- |
-| `harshit@tokenfence.eu.org` | The founder. Strongest for a founder-led application, since it names a real person at the company's own domain. |
-| `hello@tokenfence.eu.org` | A modern startup's general inbox. Neutral and deliberate. |
-| `contact@tokenfence.eu.org` | A generic business-enquiries address. Reads slightly more impersonal on a one-person project. |
+| `harshit@tokenfence-proxy.dev` | The founder. Use only if this is the address you create and can access. |
+| `hello@tokenfence-proxy.dev` | A general project inbox. |
+| `contact@tokenfence-proxy.dev` | A business-enquiries inbox. |
 
-Zoho Forever Free allows up to five addresses on the domain, so this is not a
-trade-off: create the founder address for applying, and keep `hello@` as the
-address published on the site and in the repository.
+Create and verify the actual mailbox before using it. Zoho's free plan may be
+limited to selected data centers, offers web-only access, and supports up to
+five users when it is available. Do not describe an address as live until it
+can send and receive.
 
 ## Guardrails — do not inflate these
 

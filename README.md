@@ -255,6 +255,10 @@ Deliberately not built yet, in rough priority order:
   it is sent.
 - Threshold warnings and a webhook when a key crosses 80% of its budget.
 
+## Landing page, custom domain and email
+
+The static TokenFence landing page is in [site/](site/). The current target is InfinityFree for hosting, **tokenfence-proxy.dev** for the custom domain, and Zoho Mail for email. Follow [docs/setup-domain-and-email.md](docs/setup-domain-and-email.md) for the DNS, HTTPS, GitHub Secrets and mailbox steps. InfinityFree will host the landing page, not run the Node.js proxy.
+
 ## License
 
 MIT

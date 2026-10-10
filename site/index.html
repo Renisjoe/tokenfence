@@ -1,24 +1,12 @@
 <!doctype html>
 <!--
-  TokenFence landing page — one static file, no build step, no CDN, no external
-  requests. Deploys as-is to Cloudflare Pages, GitHub Pages, Netlify or Vercel.
+  TokenFence one-page landing page. InfinityFree publishes this static folder
+  through GitHub Actions. GitHub Pages remains the existing fallback until the
+  new hosting account, domain and HTTPS certificate are verified.
 
-  Deployed to https://renisjoe.github.io/tokenfence/ and configured for one
-  GitHub account. To move this onto a different account or a custom domain,
-  run from the project root:
-
-      node scripts/configure.mjs <github-username> [domain]
-
-  That rewrites every GitHub link, and the Pages URL with it, across the site,
-  README.md and the docs at once, so they cannot drift apart. The custom domain
-  itself is set in the Pages settings rather than in a file — see
-  docs/setup-domain-and-email.md.
-
-  canonical and og:url below name the URL that actually serves this page. They
-  once named this project's free subdomain while it was still NXDOMAIN, which
-  points crawlers and link previews at a host that does not resolve — worse
-  than naming no canonical at all. Both are rewritten by the command above when
-  it is given a domain, so moving onto a live one needs no hand-editing here.
+  The canonical and Open Graph URLs below still point to the current Pages host.
+  Change them to the custom domain only after it resolves over HTTPS. InfinityFree
+  serves this landing page only; it does not run the TokenFence Node.js proxy.
 -->
 <html lang="en">
   <head>
@@ -368,8 +356,7 @@ npm start</code></pre>
     <footer>
       <div class="wrap">
         TokenFence · MIT ·
-        <a href="https://github.com/renisjoe/tokenfence">github</a> ·
-        <a href="mailto:hello@tokenfence.eu.org">hello@tokenfence.eu.org</a>
+        <a href="https://github.com/renisjoe/tokenfence">github</a>
       </div>
     </footer>
   </body>
