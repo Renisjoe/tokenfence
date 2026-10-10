@@ -3,23 +3,22 @@
   TokenFence landing page — one static file, no build step, no CDN, no external
   requests. Deploys as-is to Cloudflare Pages, GitHub Pages, Netlify or Vercel.
 
-  Deployed to https://renisjoe.github.io/tokenfence/ and configured for the
-  renisjoe account. To move this onto a different account or a custom domain,
+  Deployed to https://renisjoe.github.io/tokenfence/ and configured for one
+  GitHub account. To move this onto a different account or a custom domain,
   run from the project root:
 
       node scripts/configure.mjs <github-username> [domain]
 
-  That rewrites every GitHub link in the site, README.md and the docs at once,
-  so they cannot drift apart. The custom domain itself is set in the Pages
-  settings rather than in a file — see docs/setup-domain-and-email.md.
+  That rewrites every GitHub link, and the Pages URL with it, across the site,
+  README.md and the docs at once, so they cannot drift apart. The custom domain
+  itself is set in the Pages settings rather than in a file — see
+  docs/setup-domain-and-email.md.
 
-  canonical and og:url below deliberately name the URL that actually serves
-  this page. They said tokenfence.eu.org while that domain was still NXDOMAIN,
-  which points crawlers and link previews at a host that does not resolve.
-  When the custom domain answers over HTTPS, name it here instead — and note
-  that scripts/configure.mjs only rewrites the domain when it is passed as the
-  second argument, so a file that no longer contains the old domain is left
-  alone.
+  canonical and og:url below name the URL that actually serves this page. They
+  once named this project's free subdomain while it was still NXDOMAIN, which
+  points crawlers and link previews at a host that does not resolve — worse
+  than naming no canonical at all. Both are rewritten by the command above when
+  it is given a domain, so moving onto a live one needs no hand-editing here.
 -->
 <html lang="en">
   <head>

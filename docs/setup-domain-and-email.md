@@ -1,11 +1,20 @@
-# Domain, DNS, hosting and email — the free route
+# Domain, DNS, hosting and email
 
 The goal: a real domain pointing at the landing page, and a real mailbox on that
 domain so an application is not sent from a consumer address.
 
-Everything below is $0. It is also the slow route, and one step has an
-unpredictable delay. Read **Before you start** first — two things that look
-obvious do not work.
+**The domain does not have to be `eu.org`.** Nothing after step 2 depends on
+where it came from — `NS` records, `A` records, `MX` and `TXT` are the same
+records whatever the name looks like. Pick a source, then continue at step 2:
+
+| Where the domain comes from | Cost | Time | Step |
+| --- | --- | --- | --- |
+| Bought at cost — Vercel, Cloudflare Registrar, Porkbun | ~$5–10/year | minutes | [1A](#step-1a--buy-it-and-stop-waiting) |
+| DigitalPlat FreeDomain — `.dpdns.org`, `.us.kg`, `.qzz.io`, `.xx.kg`, `.qd.je` | $0 | minutes | [1B](#step-1b--digitalplat-freedomain-free-and-today) |
+| `name.eu.org` at nic.eu.org | $0 | days to months, decided by a volunteer | [1C](#step-1c--euorg-free-and-queued) |
+
+Whichever you pick, read **Before you start** first: one of the two traps there
+applies to every source, the other only to eu.org.
 
 ---
 
@@ -21,12 +30,22 @@ already read; do not use it as your identity.
 > the paid Workers plan. **Zoho Mail's free tier is the only free option that can
 > actually send**, which is why it is step 4.
 
-**2. Cloudflare will not host `tokenfence.eu.org` as a DNS zone.** A `eu.org`
-name is a *subdomain* of the `eu.org` zone, and Cloudflare rejects subdomain
-zones under `eu.org`. This matters because Email Routing lives inside Cloudflare
-DNS — so the usual "point nameservers at Cloudflare" advice does not apply here.
-Use **deSEC** (step 2) instead. It is free, run by a German non-profit, and
-supports `eu.org` domains.
+**2. Cloudflare will not host a `eu.org` name as a DNS zone.** A `eu.org` name
+is a *subdomain* of the `eu.org` zone, and Cloudflare rejects subdomain zones
+under `eu.org`. This matters because Email Routing lives inside Cloudflare DNS —
+so the usual "point nameservers at Cloudflare" advice does not apply there. Use
+**deSEC** (step 2) instead: free, run by a German non-profit, and it accepts
+`eu.org` domains.
+
+A *bought* domain is a different case — you own the apex, so Cloudflare accepts
+it as a zone and Cloudflare Email Routing becomes available (still inbound only,
+see above). A free subdomain from another registrar, DigitalPlat included, is in
+the same position as `eu.org`: whoever owns the parent provides the nameservers,
+and **this runbook uses deSEC for all of them** because it is free, it takes
+arbitrary `MX` and `TXT` records, and it is the one that has been exercised here.
+DigitalPlat's own tutorial reaches for Cloudflare, so Cloudflare evidently works
+for some of their suffixes — treat that as unverified rather than wrong, and if
+you try Cloudflare, confirm the zone is accepted before you commit to it.
 
 Get these two straight and the rest is mechanical.
 
@@ -36,17 +55,21 @@ Get these two straight and the rest is mechanical.
 
 | Piece | Choice | Cost |
 | --- | --- | --- |
-| Domain | `tokenfence.eu.org` via nic.eu.org | $0 |
-| Authoritative DNS | deSEC (free; eu.org delegates NS only, so no validated DNSSEC) | $0 |
+| Domain | any of the three sources above | $0–10/year |
+| Authoritative DNS | deSEC — free; a delegated subdomain gets no validated DNSSEC | $0 |
 | Repo + hosting | GitHub + GitHub Pages, publishing `site/` | $0 |
 | Mailbox | Zoho Mail Forever Free — 5 users, 5 GB, one domain | $0 |
 | HTTPS | GitHub-managed certificate for the custom domain | $0 |
 
+Hosting and mailbox are the same five steps whichever name you picked.
+
 ---
 
-## Step 0 — A non-Gmail address to register with
-eu.org will not accept a Gmail address as its contact, and its own form says so
-in as many words:
+## Step 0 — A non-Gmail address to register with (eu.org only)
+
+**Skip this step for a bought domain or a DigitalPlat one** — it is a eu.org
+constraint, not a general one. eu.org will not accept a Gmail address as its
+contact, and its own form says so in as many words:
 
 > *"gmail.com refuses contact validation emails from EU.org as 'spam'. There is
 > nothing we can do about this. Don't use Gmail addresses here, you will not be
@@ -75,10 +98,62 @@ Create a free **personal** Zoho account instead — no domain required:
 Use it as the eu.org contact. It is a bootstrap tool only — the address that goes
 on an application is `hello@tokenfence.eu.org`, created in step 4.
 
-## Step 1 — Register the domain at nic.eu.org
+## Step 1A — Buy it and stop waiting
 
-Read the two policy pages before filing, because they change what you can ask
-for:
+Five to ten dollars a year removes an unbounded human queue from the critical
+path, and it is the only source where you own the apex name.
+
+Vercel's own pricing page is explicit that it sells registrations at wholesale:
+*"We sell domains at the wholesale price set by each registry for registration,
+renewal, and transfer. The price we pay is the price you pay."* Netlify sells
+domains too, through a registrar partner — check the number at checkout, since
+their pricing carries a markup. Cloudflare Registrar sells at cost as well.
+
+Owning the apex also unlocks Cloudflare as a DNS host and Cloudflare Email
+Routing as free inbound forwarding, though neither is required — step 2 onwards
+works unchanged on deSEC.
+
+Then continue at **Step 2**.
+
+## Step 1B — DigitalPlat FreeDomain (free, and today)
+
+A free subdomain under `.dpdns.org`, `.us.kg`, `.qzz.io`, `.xx.kg` or `.qd.je`,
+registered through a dashboard rather than a queue. Two constraints to know
+before you start:
+
+- **One domain per account.** The limit is deliberate, aimed at abuse.
+- **DigitalPlat does not host your records.** It delegates the name to
+  nameservers *you* supply, so there is no `A`-record editor on their side. You
+  create the deSEC zone **first**, then hand them deSEC's nameserver hostnames.
+
+Registration asks for accurate contact data — name, a working phone number and a
+postal address — so have those to hand. Steps:
+
+1. **Create the deSEC zone first** — step 2 below, using the name you intend to
+   register. It answers for a name that is not delegated yet, which is what
+   makes the delegation check pass.
+2. Sign up at the DigitalPlat dashboard, confirming the email they send you.
+3. **Register** → enter the label (`tokenfence`) → choose the suffix → **check
+   availability** → read the resulting name back in full.
+4. Paste deSEC's nameservers — the hostnames, not IP addresses — and submit.
+5. Read the result in **Domain List**. A pending or rejected status comes with a
+   reason: an unavailable name, invalid nameservers, or an incomplete form.
+6. Confirm the delegation really happened:
+
+   ```bash
+   dig NS tokenfence.dpdns.org
+   ```
+
+   The answer has to name the same servers you typed into DigitalPlat. If it is
+   empty, fix the external zone before touching anything else.
+
+Then continue at the records in **Step 2** — deSEC holds them, not DigitalPlat.
+
+## Step 1C — eu.org (free, and queued)
+
+Free, and the reason this document exists in its original form. It is also the
+only source with no upper bound on the wait. Read the two policy pages before
+filing, because they change what you can ask for:
 
 - <https://nic.eu.org/register.html> (the process)
 - <https://nic.eu.org/opendomains.html> (what is open)
@@ -123,30 +198,33 @@ nor `tokenfence.net.eu.org` has NS records, so both are free.
 
 ## Step 2 — DNS at deSEC
 
-**Do this before submitting the eu.org request.** eu.org resolves and queries the
-nameservers *at submission time*, so a zone that does not exist yet fails there
-and then.
+**Do this before you hand the name to anyone.** Both eu.org and DigitalPlat check
+the nameservers you give them, and eu.org queries them *at submission time*, so a
+zone that does not exist yet fails there and then.
 
 1. Sign up at <https://desec.io/> with an address you can actually open.
-2. Create the zone for the name you asked eu.org for.
-3. Set the eu.org request's nameservers to deSEC's two frontends — note that the
-   second one is on `.org`, not `.io`, which is the usual typo:
+2. Create the zone for the exact name you are registering, spelled as you will
+   register it.
+3. Give deSEC's two frontends to whoever delegates the name — the eu.org form or
+   the DigitalPlat registration form. The second is on `.org`, not `.io`, which
+   is the usual typo:
 
-   | eu.org form field | Value |
+   | Field | Value |
    | --- | --- |
    | `Name1` | `ns1.desec.io` |
    | `Name2` | `ns2.desec.org` |
    | `IP1`…`IP9` | **leave blank** — these are glue records only, and deSEC's nameservers are out-of-bailiwick |
 
-4. Keep the checkbox on **server names + replies on SOA + replies on NS**, which
-   is the strictest of the three and the one eu.org recommends.
+4. On eu.org's form only, keep the checkbox on **server names + replies on SOA +
+   replies on NS** — the strictest of the three, and the one eu.org recommends.
 5. Leave deSEC's records empty for now; steps 3 and 4 add them.
 6. Set a password for the account if the welcome page asks for one. deSEC calls
    this out as its own step 0, and without it you cannot log back in to add
    records later.
 7. Skip deSEC's step 2, *Enable DNSSEC*. It requires placing a `DS` record at the
-   parent and eu.org publishes nameservers only, so that step does not apply
-   here — it is inapplicable, not merely optional.
+   parent, and a delegated subdomain gets none — eu.org publishes nameservers
+   only. So that step does not apply here: inapplicable, not merely optional.
+   (Own the apex, as in step 1A, and it does apply.)
 
 **Verify before submitting to eu.org.** eu.org runs its check at submission
 time, so confirm for yourself that both frontends already answer:
@@ -177,16 +255,15 @@ TXT records that Zoho needs, which is the reason Cloudflare was ruled out.
 ## Step 3 — GitHub repo and Pages
 
 Already done — no action needed. <https://github.com/Renisjoe/tokenfence>
-exists, is public, and `main` is pushed and in sync, with CI green on both
-commits. The site is live at
-<https://renisjoe.github.io/tokenfence/>. Come back to this step only once the
-domain is registered.
+exists, is public, and `main` is pushed and in sync. The site is live at
+<https://renisjoe.github.io/tokenfence/>, and the Pages workflow has run green
+on it. Come back to this step once the domain is registered.
 
 Then:
 
 1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
    `.github/workflows/pages.yml` publishes `site/` on every push to `main`.
-2. **Settings → Pages → Custom domain:** enter your eu.org name and save.
+2. **Settings → Pages → Custom domain:** enter the domain you registered, and save.
    Nothing goes in the repository. This repo publishes through a custom Actions
    workflow, and GitHub's documentation is explicit that in that mode no `CNAME`
    file is created, any existing one is **ignored**, and one is not required —
@@ -202,23 +279,33 @@ Then:
    | `AAAA` | `tokenfence.eu.org` | `2606:50c0:8000::153`, `2606:50c0:8001::153`, `2606:50c0:8002::153`, `2606:50c0:8003::153` |
 
    Do not use a `CNAME` here, even though GitHub's docs suggest one for
-   subdomains. `tokenfence.eu.org` is the **apex of your own zone**, so it
-   necessarily carries `SOA` and `NS`, and step 4 puts `MX` and `SPF` at that
-   same name. A `CNAME` cannot coexist with any of those records, and deSEC will
-   reject it. `A`/`AAAA` are correct precisely because this name is an apex
-   rather than a subdomain of someone else's zone. (An apex domain on GitHub
-   Pages with `MX` on the same name is the ordinary Google Workspace setup.)
+   subdomains. The name you registered is the **apex of the zone you created at
+   deSEC** — you are running that zone even when its parent belongs to someone
+   else — so it necessarily carries `SOA` and `NS`, and step 4 puts `MX` and
+   `SPF` at that same name. A `CNAME` cannot coexist with any of those records,
+   and deSEC will reject it. `A`/`AAAA` are correct because the name is an apex,
+   not a subdomain of your own zone. (An apex domain on GitHub Pages with `MX`
+   on the same name is the ordinary Google Workspace setup.)
 4. Wait for the certificate, then tick **Enforce HTTPS**.
 
 Alternative host, if you would rather not use Pages: `site/` drops straight into
-Cloudflare Pages, Netlify or Vercel as a static site with no build command. The
-zone still does not need to be on Cloudflare. Note that the apex conflict above
-applies to these hosts too — they also hand you a `CNAME` to point at, which
-cannot sit alongside the `MX`/`SPF` records at `tokenfence.eu.org`. Either use
-their documented `A` records, or host the site on `www.tokenfence.eu.org`,
-which really is a subdomain inside the zone and is free to hold a `CNAME`.
+Cloudflare Pages, Netlify or Vercel as a static site with no build command and
+no repository changes. The zone still does not need to be on Cloudflare. Note
+that the apex conflict above applies to these hosts too — they also hand you a
+`CNAME` to point at, which cannot sit alongside the `MX`/`SPF` records at the
+zone apex. Either use their documented `A` records, or host the site on
+`www.<your-domain>`, which really is a subdomain *inside* the zone and is free
+to hold a `CNAME`.
+
+None of these hosts can register a name for you, and none of them can create one
+inside a zone they do not run. Choosing a host is not a way to get the domain;
+it is what you do once the domain answers.
 
 ## Step 4 — Mailbox at Zoho
+
+This is the step that decides whether the application can be sent at all: a
+`mailto:` address on a domain with no `MX` record is a hard bounce, which is
+worse than no address.
 
 1. Sign up for **Zoho Mail Forever Free** (<https://www.zoho.com/mail/>). Check
    the current plan terms at signup: it is one domain, up to 5 users, 5 GB each,
@@ -246,67 +333,65 @@ Three checks, in this order. Each one catches a different failure:
    before you use this address on an application — mail that lands in spam is
    indistinguishable from a dead project.
 
-## Step 6 — Point the project at your real account — already done
+## Step 6 — Point the project at your real account and domain
 
-The GitHub username is the only placeholder this project ever has, and it is
-deliberately the same string everywhere so it can be swapped in one command. It
-has already been set to **renisjoe**: all five references (four in
-`site/index.html`, one in `README.md`) read `github.com/renisjoe/tokenfence`.
-
-Run it again only to move onto a different account or domain:
+The account and the domain are the only values this project hard-codes, and they
+sit in a handful of places: `site/index.html` (its `canonical`, `og:url`, header
+comment and GitHub links), `README.md`, and these docs. One script moves them
+together so they cannot drift apart:
 
 ```bash
 node scripts/configure.mjs <github-username> [domain]
 ```
 
-It rewrites the GitHub links across the project, moves the default domain if you
-pass one, and exits non-zero if it finds a placeholder it could not replace. The
-one exception is `scripts/configure.mjs` itself, which holds the placeholder as a
-constant and deliberately skips itself.
+- **Account move** rewrites every `github.com/<owner>/tokenfence` link, and the
+  Pages URL with it. GitHub treats account names as case-insensitive, so passing
+  `Renisjoe` for a repo that says `renisjoe` is not a move and changes nothing.
+- **Domain move** rewrites the default domain, the `mailto:` address built from
+  it, *and* every Pages URL. That last one is the part that was missing once:
+  `canonical` and `og:url` name the Pages URL while the custom domain does not
+  resolve yet, so a domain move that skips them leaves the page telling crawlers
+  its real address is a host it was just moved off.
+- It **exits non-zero** if the GitHub-username placeholder could not be
+  replaced everywhere, or if a `github.io` URL is still present after a domain
+  move. Read that failure rather than ignoring it: it is either the page's own
+  canonical (fix it) or a link to somebody else's project (leave it, and the run
+  will keep warning you).
 
-So, to move everything to a bought domain in one step:
+The placeholder is substituted in **every** file the script walks, so anything
+that spells the token out verbatim — this page included — has that spelling
+replaced with the account name. Write about the token; do not quote it. The
+script is its own one exception, because it holds the token as a constant and
+skipping itself is the only way the leftover check can still work.
+
+So the whole switch is two commands — the script, then a commit:
 
 ```bash
-node scripts/configure.mjs renisjoe tokenfence.dev
+node scripts/configure.mjs <your-username> <your-domain>
+git commit -am "Point the project at <your-domain>"
 ```
 
----
-
-## If eu.org takes too long
-
-Do not let the application sit behind a volunteer queue. Buy
-`tokenfence.dev` (about $5–10/year at Porkbun or Namecheap) and drop eu.org
-entirely — with a bought domain you use the registrar's DNS, Cloudflare Email
-Routing *does* become available for forwarding, and Zoho works the same way.
-
-Switching is one command rather than a manual sweep — it rewrites every domain
-and `mailto:` reference in the project together, so they cannot drift apart:
-
-```bash
-node scripts/configure.mjs renisjoe tokenfence.dev
-```
-
-Commit the result, and remember to change the custom domain in GitHub's Pages
-settings to match.
-
-A `.dev` also simply looks more like a product than a `eu.org` name, which is
-worth something on an application — which is presumably why the plan you were
-following recommended it.
+Then set the same name under **Settings → Pages → Custom domain** and tick
+**Enforce HTTPS** once the certificate is issued. Nothing about the domain goes
+in a file.
 
 ---
 
 ## What is verified here, and what is not
 
-**Verified in this repository:** the tool runs, `npm run typecheck` is clean, 41
-tests pass, and `scripts/e2e-check.sh` boots the real CLI against a stand-in
-provider and asserts forward → meter → block → report. The landing page is a
-single static file with no external requests, so it cannot break on a CDN, and
-it was rendered and measured rather than assumed — zero horizontal overflow, with
-the header responsive down to a 330px viewport. Nothing outside the repository —
-the domain, the DNS, the deploy, the mailbox — has been exercised at all.
+**Verified in this repository:** the tool runs, `npm run typecheck` is clean, 58
+tests pass, and `scripts/e2e-check.sh` boots the real CLI once per dialect
+against a stand-in provider and asserts forward → meter → block → report,
+including refusal of the other dialect's route. The landing page is a single
+static file with no external requests, so it cannot break on a CDN, and it was
+rendered and measured rather than assumed — zero horizontal overflow, with the
+header responsive down to a 330px viewport. The Pages deploy is live and its
+workflow run went green on the commit that published the current page.
 
-**Not verified — it needs your accounts, and I cannot create them:** the eu.org
-registration and its approval, the deSEC zone, the GitHub Pages deploy, the
-custom-domain DNS record, the Zoho mailbox and its mail records, and Zoho's
-current availability in your region. Treat each step as yours to check rather
-than assuming it worked, and do step 5 before the address appears on anything.
+**Not verified — it needs your accounts, and I cannot create them:** the
+registration itself (eu.org's approval, DigitalPlat's dashboard, or a purchase),
+the deSEC zone, the custom-domain DNS records and its certificate, the Zoho
+mailbox and its mail records, and Zoho's current availability in your region.
+Nothing about a custom domain has been exercised, because no name is delegated
+yet: there is no zone, no certificate, and no mailbox. Treat each step as yours
+to check, and do step 5 before the address appears on anything.
