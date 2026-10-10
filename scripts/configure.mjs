@@ -48,7 +48,8 @@ const [username, domain] = process.argv.slice(2);
 
 if (!username) {
   console.error("usage: node scripts/configure.mjs <github-username> [domain]");
-  console.error("example: node scripts/configure.mjs shank-dev tokenfence.dpdns.org");
+  // A reserved domain (RFC 2606), so the example cannot be mistaken for a real one.
+  console.error("example: node scripts/configure.mjs shank-dev tokenfence.example.com");
   process.exit(2);
 }
 

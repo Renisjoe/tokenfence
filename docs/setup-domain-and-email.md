@@ -289,8 +289,15 @@ Then:
 4. Wait for the certificate, then tick **Enforce HTTPS**.
 
 Alternative host, if you would rather not use Pages: `site/` drops straight into
-Cloudflare Pages, Netlify or Vercel as a static site with no build command and
-no repository changes. The zone still does not need to be on Cloudflare. Note
+Cloudflare Pages, Netlify or Vercel as a static site, with no build command.
+`netlify.toml` and `vercel.json` in the repository root already point those two
+at `site/`, so an import needs no build settings — without them Netlify is the
+problem case: it sees a `package.json`, finds no framework and no build script,
+and falls back to publishing the repository root, which serves the page at
+`/site/` instead of at the root. Cloudflare Pages has no equivalent file; set
+its build output directory to `site` in the UI.
+
+The zone still does not need to be on Cloudflare. Note
 that the apex conflict above applies to these hosts too — they also hand you a
 `CNAME` to point at, which cannot sit alongside the `MX`/`SPF` records at the
 zone apex. Either use their documented `A` records, or host the site on
