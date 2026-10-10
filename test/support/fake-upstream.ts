@@ -6,6 +6,9 @@ export interface RecordedRequest {
   method: string;
   path: string;
   authorization: string | undefined;
+  /** Anthropic authenticates with this instead of a bearer token. */
+  apiKey: string | undefined;
+  anthropicVersion: string | undefined;
   body: unknown;
 }
 
@@ -37,6 +40,33 @@ export function completion(model: string, promptTokens: number, completionTokens
   };
 }
 
+/**
+ * A plausible Anthropic messages payload reporting the given usage. Anthropic
+ * splits the prompt into uncached input plus cache writes and reads, so those
+ * are separate fields here rather than one total.
+ */
+export function message(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  cache: { creation?: number; read?: number } = {},
+): unknown {
+  return {
+    id: "msg-fake",
+    type: "message",
+    role: "assistant",
+    model,
+    content: [{ type: "text", text: "ok" }],
+    stop_reason: "end_turn",
+    usage: {
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cache_creation_input_tokens: cache.creation ?? 0,
+      cache_read_input_tokens: cache.read ?? 0,
+    },
+  };
+}
+
 export async function startFakeUpstream(handler?: UpstreamHandler): Promise<FakeUpstream> {
   const requests: RecordedRequest[] = [];
 
@@ -50,6 +80,11 @@ export async function startFakeUpstream(handler?: UpstreamHandler): Promise<Fake
           method: req.method ?? "",
           path: req.url ?? "",
           authorization: req.headers.authorization,
+          apiKey: typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined,
+          anthropicVersion:
+            typeof req.headers["anthropic-version"] === "string"
+              ? req.headers["anthropic-version"]
+              : undefined,
           body: raw === "" ? null : JSON.parse(raw),
         });
 

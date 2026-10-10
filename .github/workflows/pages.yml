@@ -5,9 +5,10 @@ name: Deploy site to GitHub Pages
 #
 # One-time setup after the first push:
 #   Settings -> Pages -> Build and deployment -> Source: GitHub Actions
-# The custom domain comes from site/CNAME. Add it under
-# Settings -> Pages -> Custom domain and point its DNS at GitHub Pages before a
-# certificate will be issued — see docs/setup-domain-and-email.md.
+# The custom domain is set under Settings -> Pages -> Custom domain, not in a
+# file: this workflow publishes with GitHub Actions, and GitHub ignores any
+# CNAME file in that mode. Point its DNS at GitHub Pages before a certificate
+# will be issued — see docs/setup-domain-and-email.md.
 
 on:
   push:

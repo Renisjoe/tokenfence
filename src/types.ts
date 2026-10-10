@@ -21,13 +21,23 @@ export interface KeyConfig {
   monthlyUsdBudget?: number;
 }
 
+/** Which wire dialect the configured upstream speaks. */
+export type UpstreamFlavor = "openai" | "anthropic";
+
 /** Where the proxy sends authenticated traffic, and how to authenticate it. */
 export interface UpstreamConfig {
-  /** Base URL of an OpenAI-compatible API, e.g. https://api.openai.com/v1 */
+  /**
+   * Dialect of the upstream. Decides which route this instance serves, how the
+   * call is authenticated, and which fields carry the token counts.
+   */
+  flavor: UpstreamFlavor;
+  /** Base URL of the provider API, e.g. https://api.anthropic.com/v1 */
   baseUrl: string;
   /** Environment variable holding the real provider key. Never the key itself. */
   apiKeyEnv: string;
   timeoutMs: number;
+  /** Sent as `anthropic-version`. Only used when `flavor` is `"anthropic"`. */
+  anthropicVersion: string;
 }
 
 /** Which guardrails are switched on. */

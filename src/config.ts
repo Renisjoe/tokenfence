@@ -8,6 +8,7 @@ import type {
   ModelPrice,
   TokenFenceConfig,
   UpstreamConfig,
+  UpstreamFlavor,
 } from "./types.ts";
 
 /** Raised for anything wrong with the config file, with a pointer to the field. */
@@ -19,6 +20,9 @@ export class ConfigError extends Error {
 }
 
 const DEFAULT_PRICE: ModelPrice = { inputPer1M: 1, outputPer1M: 3 };
+const DEFAULT_FLAVOR: UpstreamFlavor = "openai";
+/** Long-standing Anthropic API version. Required header, not a date we choose. */
+const DEFAULT_ANTHROPIC_VERSION = "2023-06-01";
 const DEFAULT_PORT = 8787;
 const DEFAULT_HOST = "127.0.0.1";
 const DEFAULT_TIMEOUT_MS = 60_000;
@@ -72,6 +76,14 @@ function optionalPositiveNumber(value: unknown, where: string): number | undefin
   return n;
 }
 
+function asFlavor(value: unknown, where: string): UpstreamFlavor {
+  const flavor = asString(value, where);
+  if (flavor !== "openai" && flavor !== "anthropic") {
+    fail(where, `expected "openai" or "anthropic", got "${flavor}"`);
+  }
+  return flavor;
+}
+
 function asPrice(value: unknown, where: string): ModelPrice {
   const raw = asRecord(value, where);
   const input = optionalNonNegative(raw.inputPer1M, `${where}.inputPer1M`);
@@ -116,10 +128,21 @@ function asUpstream(value: unknown): UpstreamConfig {
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
     fail("upstream.baseUrl", `expected an http(s) URL, got ${parsed.protocol}`);
   }
+  // Cross-field check: a version header on a non-Anthropic upstream is a
+  // config mistake worth naming, not something to silently ignore.
+  if (raw.anthropicVersion !== undefined && raw.flavor !== undefined && raw.flavor !== "anthropic") {
+    fail("upstream.anthropicVersion", 'only applies when upstream.flavor is "anthropic"');
+  }
+
   return {
+    flavor: raw.flavor === undefined ? DEFAULT_FLAVOR : asFlavor(raw.flavor, "upstream.flavor"),
     baseUrl: baseUrl.replace(/\/+$/, ""),
     apiKeyEnv: asString(raw.apiKeyEnv, "upstream.apiKeyEnv"),
     timeoutMs: raw.timeoutMs === undefined ? DEFAULT_TIMEOUT_MS : asPositiveInt(raw.timeoutMs, "upstream.timeoutMs"),
+    anthropicVersion:
+      raw.anthropicVersion === undefined
+        ? DEFAULT_ANTHROPIC_VERSION
+        : asString(raw.anthropicVersion, "upstream.anthropicVersion"),
   };
 }
 

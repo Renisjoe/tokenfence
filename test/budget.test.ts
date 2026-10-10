@@ -13,7 +13,13 @@ const NOW = new Date("2026-05-10T12:34:56.000Z");
 function configWith(key: KeyConfig): TokenFenceConfig {
   return {
     listen: { host: "127.0.0.1", port: 0 },
-    upstream: { baseUrl: "https://example.com/v1", apiKeyEnv: "K", timeoutMs: 1000 },
+    upstream: {
+      flavor: "openai",
+      baseUrl: "https://example.com/v1",
+      apiKeyEnv: "K",
+      timeoutMs: 1000,
+      anthropicVersion: "2023-06-01",
+    },
     keys: [key],
     models: {},
     defaultPrice: { inputPer1M: 1, outputPer1M: 3 },

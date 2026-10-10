@@ -10,8 +10,16 @@
       node scripts/configure.mjs <github-username> [domain]
 
   That rewrites every GitHub link in the site, README.md and the docs at once,
-  so they cannot drift apart. site/CNAME must then name the registered domain —
-  see docs/setup-domain-and-email.md.
+  so they cannot drift apart. The custom domain itself is set in the Pages
+  settings rather than in a file — see docs/setup-domain-and-email.md.
+
+  canonical and og:url below deliberately name the URL that actually serves
+  this page. They said tokenfence.eu.org while that domain was still NXDOMAIN,
+  which points crawlers and link previews at a host that does not resolve.
+  When the custom domain answers over HTTPS, name it here instead — and note
+  that scripts/configure.mjs only rewrites the domain when it is passed as the
+  second argument, so a file that no longer contains the old domain is left
+  alone.
 -->
 <html lang="en">
   <head>
@@ -20,12 +28,12 @@
     <title>TokenFence — budget enforcement for LLM calls</title>
     <meta
       name="description"
-      content="TokenFence is an open-source OpenAI-compatible proxy that meters every LLM call against a per-key budget and refuses the next request once the budget is gone. No account, no telemetry, one local ledger."
+      content="TokenFence is an open-source proxy for OpenAI and Anthropic APIs that meters every LLM call against a per-key budget and refuses the next request once the budget is gone. No account, no telemetry, one local ledger."
     />
     <meta name="theme-color" content="#0a0c11" />
-    <link rel="canonical" href="https://tokenfence.eu.org/" />
+    <link rel="canonical" href="https://renisjoe.github.io/tokenfence/" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://tokenfence.eu.org/" />
+    <meta property="og:url" content="https://renisjoe.github.io/tokenfence/" />
     <meta property="og:title" content="TokenFence — budget enforcement for LLM calls" />
     <meta
       property="og:description"
@@ -215,7 +223,7 @@
         <span class="tag">Open source · self-hosted · MIT</span>
         <h1>The bill arrives later.<br />The loop ran <em>all night</em>.</h1>
         <p class="lede">
-          TokenFence is a proxy you run in front of any OpenAI-compatible API. It prices every
+          TokenFence is a proxy you run in front of OpenAI or Anthropic. It prices every
           call, writes it to a local ledger, and returns <strong>429</strong> to the next request
           once that key's budget is spent — so a runaway retry loop stops at your ceiling
           instead of your provider's invoice.
@@ -282,6 +290,7 @@ HTTP 429</code></pre>
       <pre><code>{
   "listen": { "host": "127.0.0.1", "port": 8787 },
   "upstream": {
+    "flavor": "openai",
     "baseUrl": "https://api.openai.com/v1",
     "apiKeyEnv": "OPENAI_API_KEY"
   },
@@ -306,7 +315,8 @@ HTTP 429</code></pre>
           <tr><th>Route</th><th>Purpose</th></tr>
         </thead>
         <tbody>
-          <tr><td>POST /v1/chat/completions</td><td>Metered, budget-enforced pass-through to your provider.</td></tr>
+          <tr><td>POST /v1/chat/completions</td><td>Metered, budget-enforced pass-through. Served when <code>flavor</code> is <code>"openai"</code>.</td></tr>
+          <tr><td>POST /v1/messages</td><td>The same guardrails over Anthropic's dialect. Served when <code>flavor</code> is <code>"anthropic"</code>.</td></tr>
           <tr><td>GET /v1/usage</td><td>The calling key's own spend and remaining headroom.</td></tr>
           <tr><td>GET /healthz</td><td>Liveness and version.</td></tr>
         </tbody>
@@ -317,7 +327,7 @@ HTTP 429</code></pre>
 git clone https://github.com/renisjoe/tokenfence
 cd tokenfence &amp;&amp; npm install
 
-<span class="dim"># 41 tests and a full CLI smoke check: no API key, no network, no spend</span>
+<span class="dim"># 58 tests and a full CLI smoke check: no API key, no network, no spend</span>
 npm run typecheck &amp;&amp; npm test
 bash scripts/e2e-check.sh
 
@@ -329,7 +339,7 @@ npm start</code></pre>
       <h2>What it does not do</h2>
       <ul>
         <li><strong>No streaming.</strong> A streamed response cannot be metered, so <code>"stream": true</code> is refused rather than allowed to spend invisibly. Reconciliation after the fact is the first roadmap item.</li>
-        <li><strong>No Anthropic shape.</strong> The proxy speaks the OpenAI chat-completions protocol, which is what makes it a drop-in across OpenAI, Groq, Together, Fireworks, DeepSeek, OpenRouter, Ollama, vLLM and private gateways. <code>/v1/messages</code> is not implemented.</li>
+        <li><strong>Cache multipliers are approximate.</strong> Anthropic reports cache writes and reads outside the uncached prompt. Every one of those tokens is counted and surfaced as <code>x-tokenfence-cache-tokens</code>, but the 1.25× and 0.1× cache rates are not modelled — so treat the ledger as a guardrail, not an invoice.</li>
         <li><strong>No account, no telemetry.</strong> The ledger is a JSON file next to your config. Nothing leaves the machine except the upstream call you configure.</li>
       </ul>
 
@@ -338,14 +348,14 @@ npm start</code></pre>
         <strong>Early stage, and being upfront about it.</strong> One maintainer, one repository,
         no releases, and no package on npm — <code>npx tokenfence</code> will not work today, so
         clone it. There are no users to report, because this was just built. What is verified is
-        that the parts that exist work: a clean typecheck, 41 passing tests, and an end-to-end
-        check that boots the real CLI against a stand-in provider and asserts the whole path —
-        forward, meter, block, report.
+        that the parts that exist work: a clean typecheck, 58 passing tests, and an end-to-end
+        check that boots the real CLI once per dialect against a stand-in provider and asserts
+        the whole path — forward, meter, block, report.
       </p>
       <div class="note">
-        <strong>Roadmap:</strong> streaming with usage reconciliation · Anthropic
-        <code>/v1/messages</code> · a cost estimate for a batch before it is sent · threshold
-        warnings at 80%. A hosted version is the intended direction, but the open-source proxy is
+        <strong>Roadmap:</strong> streaming with usage reconciliation · prompt-cache multipliers
+        in the price table · a cost estimate for a batch before it is sent · threshold warnings
+        at 80%. A hosted version is the intended direction, but the open-source proxy is
         the whole product today, and it is complete enough to run.
       </div>
 

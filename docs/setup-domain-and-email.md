@@ -37,7 +37,7 @@ Get these two straight and the rest is mechanical.
 | Piece | Choice | Cost |
 | --- | --- | --- |
 | Domain | `tokenfence.eu.org` via nic.eu.org | $0 |
-| Authoritative DNS | deSEC (free, DNSSEC-capable) | $0 |
+| Authoritative DNS | deSEC (free; eu.org delegates NS only, so no validated DNSSEC) | $0 |
 | Repo + hosting | GitHub + GitHub Pages, publishing `site/` | $0 |
 | Mailbox | Zoho Mail Forever Free — 5 users, 5 GB, one domain | $0 |
 | HTTPS | GitHub-managed certificate for the custom domain | $0 |
@@ -70,10 +70,10 @@ Create a free **personal** Zoho account instead — no domain required:
   depending on where you sign up from
 - **A mobile number is required** for personal signup
 - India, the EU and the US are all covered by Zoho's Forever Free plan, which is
-  what step 5 depends on
+  what step 4 depends on
 
 Use it as the eu.org contact. It is a bootstrap tool only — the address that goes
-on an application is `hello@tokenfence.eu.org`, set up in step 5.
+on an application is `hello@tokenfence.eu.org`, created in step 4.
 
 ## Step 1 — Register the domain at nic.eu.org
 
@@ -113,18 +113,62 @@ Then:
    reports range from a couple of days to several months. Nothing else in this
    document is blocked on it — do steps 3 and 4 meanwhile.
 
-Checked against the public resolver before filing: neither `tokenfence.eu.org`
+**Filed:** request `20261008205443-arf-55753`. EU.org's own checker accepted it,
+reporting matching `SOA` serials and `NS` replies from both `ns1.desec.io` and
+`ns2.desec.org`, over IPv4 and IPv6. Approval is a human queue and nothing on
+this page shortens it.
+
+Checked against the public resolver at filing time: neither `tokenfence.eu.org`
 nor `tokenfence.net.eu.org` has NS records, so both are free.
 
 ## Step 2 — DNS at deSEC
 
-1. Sign up at <https://desec.io/>. Free, and your zone gets DNSSEC.
-2. Create the zone for the name you asked eu.org for.
-3. Copy the **nameservers** it gives you and put them in the eu.org request.
-4. Leave the records empty for now; steps 3 and 4 add them.
+**Do this before submitting the eu.org request.** eu.org resolves and queries the
+nameservers *at submission time*, so a zone that does not exist yet fails there
+and then.
 
-Notes: deSEC requires a small dynamic-DNS-style token for API use, but the web
-interface is enough here. Hurricane Electric's free DNS
+1. Sign up at <https://desec.io/> with an address you can actually open.
+2. Create the zone for the name you asked eu.org for.
+3. Set the eu.org request's nameservers to deSEC's two frontends — note that the
+   second one is on `.org`, not `.io`, which is the usual typo:
+
+   | eu.org form field | Value |
+   | --- | --- |
+   | `Name1` | `ns1.desec.io` |
+   | `Name2` | `ns2.desec.org` |
+   | `IP1`…`IP9` | **leave blank** — these are glue records only, and deSEC's nameservers are out-of-bailiwick |
+
+4. Keep the checkbox on **server names + replies on SOA + replies on NS**, which
+   is the strictest of the three and the one eu.org recommends.
+5. Leave deSEC's records empty for now; steps 3 and 4 add them.
+6. Set a password for the account if the welcome page asks for one. deSEC calls
+   this out as its own step 0, and without it you cannot log back in to add
+   records later.
+7. Skip deSEC's step 2, *Enable DNSSEC*. It requires placing a `DS` record at the
+   parent and eu.org publishes nameservers only, so that step does not apply
+   here — it is inapplicable, not merely optional.
+
+**Verify before submitting to eu.org.** eu.org runs its check at submission
+time, so confirm for yourself that both frontends already answer:
+
+```sh
+nslookup -type=SOA tokenfence.eu.org ns1.desec.io    # expect a serial number
+nslookup -type=NS  tokenfence.eu.org ns2.desec.org   # expect ns1.desec.io + ns2.desec.org
+```
+
+A zone created seconds earlier can answer `Query refused` from one anycast node
+while the other answers correctly. That is replication catching up rather than a
+misconfiguration, and it clears within a few minutes. Retry until both respond,
+then submit. Filing during that window turns a correct setup into a rejected
+request.
+
+Notes: deSEC serves the zone before the delegation exists, which is what makes
+the eu.org check pass. DNSSEC will not actually be
+*validated* here — eu.org delegates nameservers only and publishes no `DS`
+record, so the chain of trust stops at `eu.org`. That is harmless for a site and
+mailbox, but do not claim a signed zone in the application. deSEC requires a
+small dynamic-DNS-style token for API use; the web interface is enough here.
+Hurricane Electric's free DNS
 (<https://dns.he.net/>) is the other option and is in fact the longest-proven
 pairing with eu.org — a decade-old account reports *"set up DNS using he.net and
 never had any issues"*. Either host works; both let you set the arbitrary MX and
@@ -142,23 +186,37 @@ Then:
 
 1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
    `.github/workflows/pages.yml` publishes `site/` on every push to `main`.
-2. **Settings → Pages → Custom domain:** enter your eu.org name, then add a
-   `site/CNAME` file containing exactly that domain and push. Until a domain is
-   actually registered, `site/CNAME` is deliberately **absent** from this repo —
-   a CNAME file pointing at an unregistered domain makes GitHub redirect the
-   working `github.io` URL to a host that does not resolve, which turns a live
-   site into a dead one.
-3. At deSEC, add the record GitHub shows. For a subdomain such as
-   `tokenfence.eu.org` that is a **`CNAME` to `renisjoe.github.io`** — the four
-   `A` records are only for apex domains, which does not apply to a `eu.org`
-   name.
+2. **Settings → Pages → Custom domain:** enter your eu.org name and save.
+   Nothing goes in the repository. This repo publishes through a custom Actions
+   workflow, and GitHub's documentation is explicit that in that mode no `CNAME`
+   file is created, any existing one is **ignored**, and one is not required —
+   the custom domain lives in the repository settings, not in a file. (An
+   earlier revision of this runbook told you to add `site/CNAME`; that was wrong
+   for this layout.)
+3. At deSEC, point the name at GitHub Pages with `A` and `AAAA` records, **not**
+   a `CNAME`:
+
+   | Type | Name | Value |
+   | --- | --- | --- |
+   | `A` | `tokenfence.eu.org` | `185.199.108.153`, `185.199.109.153`, `185.199.110.153`, `185.199.111.153` |
+   | `AAAA` | `tokenfence.eu.org` | `2606:50c0:8000::153`, `2606:50c0:8001::153`, `2606:50c0:8002::153`, `2606:50c0:8003::153` |
+
+   Do not use a `CNAME` here, even though GitHub's docs suggest one for
+   subdomains. `tokenfence.eu.org` is the **apex of your own zone**, so it
+   necessarily carries `SOA` and `NS`, and step 4 puts `MX` and `SPF` at that
+   same name. A `CNAME` cannot coexist with any of those records, and deSEC will
+   reject it. `A`/`AAAA` are correct precisely because this name is an apex
+   rather than a subdomain of someone else's zone. (An apex domain on GitHub
+   Pages with `MX` on the same name is the ordinary Google Workspace setup.)
 4. Wait for the certificate, then tick **Enforce HTTPS**.
 
 Alternative host, if you would rather not use Pages: `site/` drops straight into
-Cloudflare Pages, Netlify or Vercel as a static site with no build command. On
-Cloudflare Pages the custom domain is added as a `CNAME` to
-`<project>.pages.dev` at deSEC — the zone still does not need to be on
-Cloudflare.
+Cloudflare Pages, Netlify or Vercel as a static site with no build command. The
+zone still does not need to be on Cloudflare. Note that the apex conflict above
+applies to these hosts too — they also hand you a `CNAME` to point at, which
+cannot sit alongside the `MX`/`SPF` records at `tokenfence.eu.org`. Either use
+their documented `A` records, or host the site on `www.tokenfence.eu.org`,
+which really is a subdomain inside the zone and is free to hold a `CNAME`.
 
 ## Step 4 — Mailbox at Zoho
 
@@ -221,9 +279,8 @@ Do not let the application sit behind a volunteer queue. Buy
 entirely — with a bought domain you use the registrar's DNS, Cloudflare Email
 Routing *does* become available for forwarding, and Zoho works the same way.
 
-Switching is one command rather than a manual sweep — it rewrites `site/CNAME`
-and every domain and `mailto:` reference in the project together, so they cannot
-drift apart:
+Switching is one command rather than a manual sweep — it rewrites every domain
+and `mailto:` reference in the project together, so they cannot drift apart:
 
 ```bash
 node scripts/configure.mjs renisjoe tokenfence.dev

@@ -42,9 +42,11 @@ export async function setup(options: SetupOptions = {}): Promise<Harness> {
   const config: TokenFenceConfig = {
     listen: { host: "127.0.0.1", port: 0 },
     upstream: {
+      flavor: "openai",
       baseUrl: upstream.baseUrl,
       apiKeyEnv: UPSTREAM_KEY_ENV,
       timeoutMs: 5000,
+      anthropicVersion: "2023-06-01",
       ...options.upstream,
     },
     keys: [

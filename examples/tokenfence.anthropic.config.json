@@ -1,0 +1,22 @@
+{
+  "listen": { "host": "127.0.0.1", "port": 8787 },
+  "upstream": {
+    "flavor": "anthropic",
+    "baseUrl": "https://api.anthropic.com/v1",
+    "apiKeyEnv": "ANTHROPIC_API_KEY",
+    "timeoutMs": 60000
+  },
+  "keys": [
+    { "name": "ci", "key": "tf_ci_replace_me", "dailyUsdBudget": 2, "monthlyUsdBudget": 20 },
+    { "name": "local", "key": "tf_local_replace_me", "dailyUsdBudget": 0.5 }
+  ],
+  "models": {
+    "claude-fable-5-1": { "inputPer1M": 10, "outputPer1M": 50 },
+    "claude-opus-5-5": { "inputPer1M": 4, "outputPer1M": 20 },
+    "claude-sonnet-5-5": { "inputPer1M": 2, "outputPer1M": 10 },
+    "claude-haiku-5-5": { "inputPer1M": 0.1, "outputPer1M": 0.5 }
+  },
+  "defaultPrice": { "inputPer1M": 4, "outputPer1M": 20 },
+  "enforce": { "preflightMaxTokens": true },
+  "usageFile": "tokenfence-usage.json"
+}

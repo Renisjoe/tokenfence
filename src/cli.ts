@@ -18,7 +18,7 @@ export type Command =
   | { kind: "help" }
   | { kind: "version" };
 
-const HELP = `tokenfence — budget enforcement for OpenAI-compatible LLM calls
+const HELP = `tokenfence — budget enforcement for LLM API calls
 
 Usage:
   tokenfence serve  --config <file> [--host <host>] [--port <port>]
@@ -26,9 +26,10 @@ Usage:
   tokenfence --help | --version
 
 Commands:
-  serve    Run the proxy. Accepts POST /v1/chat/completions, GET /v1/usage,
-           and GET /healthz. Every authenticated call is metered against the
-           budgets configured for the calling key.
+  serve    Run the proxy. Serves the route matching upstream.flavor:
+           POST /v1/chat/completions for "openai", or POST /v1/messages for
+           "anthropic". Also GET /v1/usage and GET /healthz. Every
+           authenticated call is metered against the budgets for its key.
   report   Print spend per key for today and this month from the local ledger.
 
 Options:
@@ -150,7 +151,7 @@ async function serve(command: Extract<Command, { kind: "serve" }>): Promise<numb
 
   process.stdout.write(
     `${SERVICE} ${VERSION} listening on ${started.url}\n` +
-      `  upstream    ${config.upstream.baseUrl}  (key from ${config.upstream.apiKeyEnv})\n` +
+      `  upstream    ${config.upstream.baseUrl}  (${config.upstream.flavor}, key from ${config.upstream.apiKeyEnv})\n` +
       `  ledger      ${config.usageFile}\n` +
       `  keys        ${budgets}\n` +
       `  guardrails  ${config.enforce.preflightMaxTokens ? "max_tokens pre-flight on" : "max_tokens pre-flight off"}\n\n`,

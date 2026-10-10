@@ -3,6 +3,8 @@ import type { IncomingMessage, ServerResponse } from "node:http";
 
 import { budgetStatus } from "./budget.ts";
 import type { BudgetStatus } from "./budget.ts";
+import { dialectFor, foreignRoutes } from "./dialect.ts";
+import type { Dialect } from "./dialect.ts";
 import { costOf, formatUsd, maxOutputTokensAffordable, priceFor } from "./pricing.ts";
 import type { UsageStore } from "./store.ts";
 import type { KeyConfig, TokenFenceConfig } from "./types.ts";
@@ -49,10 +51,13 @@ function sendJson(
   res.end(body);
 }
 
-/** Error shape follows OpenAI's, so existing clients render our failures too. */
-function sendError(req: IncomingMessage, res: ServerResponse, error: HttpError): void {
-  const type = error.status === 429 ? "rate_limit_error" : error.status >= 500 ? "server_error" : "invalid_request_error";
-  sendJson(res, error.status, { error: { message: error.message, type, code: error.code } });
+/**
+ * Errors take the shape of the dialect that is configured, so a client built for
+ * either provider renders a refusal from this proxy the way it renders the
+ * provider's own errors.
+ */
+function sendError(req: IncomingMessage, res: ServerResponse, error: HttpError, dialect: Dialect): void {
+  sendJson(res, error.status, dialect.errorBody(error.status, error.code, error.message));
   if (error.status === 413) {
     res.once("finish", () => req.destroy());
   }
@@ -128,32 +133,6 @@ function exhaustedMessage(key: KeyConfig, status: BudgetStatus): string {
   return `key "${key.name}" is out of budget (${parts.join("; ")}). The cap resets at the next UTC day or month boundary.`;
 }
 
-interface ReportedUsage {
-  promptTokens: number;
-  completionTokens: number;
-  /** False when the payload carried no usable `usage` block at all. */
-  reported: boolean;
-}
-
-function numberIn(value: unknown): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-
-/**
- * Read the provider's token counts. A provider that reports nothing must be
- * visible as unreported rather than silently recorded as a free call.
- */
-function reportedUsage(parsed: unknown): ReportedUsage {
-  if (!isRecord(parsed)) return { promptTokens: 0, completionTokens: 0, reported: false };
-  const usage = parsed.usage;
-  if (!isRecord(usage)) return { promptTokens: 0, completionTokens: 0, reported: false };
-  return {
-    promptTokens: numberIn(usage.prompt_tokens),
-    completionTokens: numberIn(usage.completion_tokens),
-    reported: true,
-  };
-}
-
 function numericField(payload: Record<string, unknown>, name: string): number | null {
   const value = payload[name];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -164,21 +143,23 @@ export async function handleRequest(
   res: ServerResponse,
   deps: ProxyDeps,
 ): Promise<void> {
+  const dialect = dialectFor(deps.config);
   try {
     await route(req, res, deps);
   } catch (error) {
     if (error instanceof HttpError) {
-      sendError(req, res, error);
+      sendError(req, res, error, dialect);
       return;
     }
     const reason = error instanceof Error ? error.message : String(error);
-    sendError(req, res, new HttpError(500, "internal_error", reason));
+    sendError(req, res, new HttpError(500, "internal_error", reason), dialect);
   }
 }
 
 async function route(req: IncomingMessage, res: ServerResponse, deps: ProxyDeps): Promise<void> {
   const url = new URL(req.url ?? "/", "http://localhost");
   const path = url.pathname.replace(/\/+$/, "") || "/";
+  const dialect = dialectFor(deps.config);
 
   if (req.method === "GET" && path === "/healthz") {
     sendJson(res, 200, { ok: true, service: SERVICE, version: VERSION });
@@ -194,25 +175,36 @@ async function route(req: IncomingMessage, res: ServerResponse, deps: ProxyDeps)
     return;
   }
 
-  if (path === "/v1/chat/completions") {
+  // A request aimed at the other dialect is a configuration mismatch rather
+  // than a stray path, so name the flavor instead of returning a bare 404.
+  if (foreignRoutes(dialect).includes(path)) {
+    throw new HttpError(
+      404,
+      "wrong_dialect",
+      `this instance is configured for upstream.flavor "${deps.config.upstream.flavor}", which serves ${dialect.route}. Send the request there instead.`,
+    );
+  }
+
+  if (path === dialect.route) {
     if (req.method !== "POST") {
-      throw new HttpError(405, "method_not_allowed", "use POST /v1/chat/completions");
+      throw new HttpError(405, "method_not_allowed", `use POST ${dialect.route}`);
     }
-    await proxyChatCompletions(req, res, deps);
+    await proxyCompletion(req, res, deps, dialect);
     return;
   }
 
   throw new HttpError(
     404,
     "not_found",
-    `no route for ${req.method} ${path}. TokenFence proxies POST /v1/chat/completions and serves GET /v1/usage and GET /healthz.`,
+    `no route for ${req.method} ${path}. This instance proxies POST ${dialect.route} and serves GET /v1/usage and GET /healthz.`,
   );
 }
 
-async function proxyChatCompletions(
+async function proxyCompletion(
   req: IncomingMessage,
   res: ServerResponse,
   deps: ProxyDeps,
+  dialect: Dialect,
 ): Promise<void> {
   const key = authenticate(req, deps);
   const text = await readBody(req, deps.config.maxBodyBytes);
@@ -266,13 +258,16 @@ async function proxyChatCompletions(
     );
   }
 
-  const target = `${deps.config.upstream.baseUrl}/chat/completions`;
+  const target = `${deps.config.upstream.baseUrl}${dialect.upstreamPath}`;
 
   let upstream: Response;
   try {
     upstream = await deps.fetchImpl(target, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${upstreamKey}` },
+      headers: {
+        "content-type": "application/json",
+        ...dialect.authHeaders(upstreamKey, deps.config.upstream),
+      },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(deps.config.upstream.timeoutMs),
     });
@@ -299,7 +294,7 @@ async function proxyChatCompletions(
     parsed = null;
   }
 
-  const usage = reportedUsage(parsed);
+  const usage = dialect.reportedUsage(parsed);
   const { promptTokens, completionTokens } = usage;
   const cost = costOf(price, promptTokens, completionTokens);
 
@@ -321,6 +316,12 @@ async function proxyChatCompletions(
   };
   if (Number.isFinite(after.remainingUsd)) {
     headers["x-tokenfence-remaining-usd"] = after.remainingUsd.toFixed(6);
+  }
+  if (usage.cacheTokens > 0) {
+    // Part of the prompt came from the provider's cache, where the rate differs
+    // from the listed input price. Surface the split rather than fold it in
+    // silently. See the README for what is and is not modelled here.
+    headers["x-tokenfence-cache-tokens"] = String(usage.cacheTokens);
   }
   if (!usage.reported) {
     // The call was recorded at zero cost because nothing told us what it spent.

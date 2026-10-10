@@ -1,10 +1,11 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { completion } from "./support/fake-upstream.ts";
+import { completion, message } from "./support/fake-upstream.ts";
 import { CLIENT_KEY, setup, UPSTREAM_KEY } from "./support/harness.ts";
 
 const CHAT = "/v1/chat/completions";
+const MESSAGES = "/v1/messages";
 
 function close(actual: number, expected: number): boolean {
   return Math.abs(actual - expected) < 1e-12;
@@ -259,5 +260,158 @@ test("rejects a non-JSON body and reports the health endpoint", async () => {
     assert.equal(missing.status, 404);
   } finally {
     await h.close();
+  }
+});
+
+test("proxies an Anthropic messages call with x-api-key rather than a bearer token", async () => {
+  const h = await setup({
+    upstream: { flavor: "anthropic" },
+    handler: (_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(message("claude-sonnet-5-5", 1000, 500)));
+    },
+  });
+  try {
+    const res = await h.post(MESSAGES, {
+      model: "claude-sonnet-5-5",
+      max_tokens: 1024,
+      messages: [{ role: "user", content: "hi" }],
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("x-tokenfence-cost-usd"), "0.002500");
+    assert.equal(res.headers.get("x-tokenfence-prompt-tokens"), "1000");
+    assert.equal(res.headers.get("x-tokenfence-completion-tokens"), "500");
+    assert.equal(res.headers.get("x-tokenfence-cache-tokens"), null);
+
+    const sent = h.upstream.requests[0]!;
+    assert.equal(sent.path, "/v1/messages");
+    assert.equal(sent.apiKey, UPSTREAM_KEY);
+    assert.equal(sent.anthropicVersion, "2023-06-01");
+    // Anthropic rejects a bearer token alongside x-api-key, so none must be sent.
+    assert.equal(sent.authorization, undefined);
+
+    assert.equal(h.store.entries().length, 1);
+    assert.equal(h.store.entries()[0]!.model, "claude-sonnet-5-5");
+  } finally {
+    await h.close();
+  }
+});
+
+test("counts Anthropic cache tokens, so a cached call is not recorded as nearly free", async () => {
+  const h = await setup({
+    upstream: { flavor: "anthropic" },
+    handler: (_req, res) => {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(message("claude-sonnet-5-5", 400, 100, { creation: 350, read: 1250 })));
+    },
+  });
+  try {
+    const res = await h.post(MESSAGES, { model: "claude-sonnet-5-5", max_tokens: 256 });
+    assert.equal(res.status, 200);
+    // 400 uncached + 350 written + 1250 read = 2000 prompt tokens.
+    assert.equal(res.headers.get("x-tokenfence-prompt-tokens"), "2000");
+    assert.equal(res.headers.get("x-tokenfence-completion-tokens"), "100");
+    assert.equal(res.headers.get("x-tokenfence-cache-tokens"), "1600");
+    // 2000/1e6 * $1 + 100/1e6 * $3 = $0.0023
+    assert.equal(res.headers.get("x-tokenfence-cost-usd"), "0.002300");
+  } finally {
+    await h.close();
+  }
+});
+
+test("flags an Anthropic response that carries no usage block", async () => {
+  const h = await setup({
+    upstream: { flavor: "anthropic" },
+    handler: (_req, res) => {
+      const payload = message("claude-sonnet-5-5", 0, 0) as Record<string, unknown>;
+      delete payload.usage;
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(payload));
+    },
+  });
+  try {
+    const res = await h.post(MESSAGES, { model: "claude-sonnet-5-5", max_tokens: 16 });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get("x-tokenfence-usage"), "unavailable");
+    assert.equal(res.headers.get("x-tokenfence-cost-usd"), "0.000000");
+  } finally {
+    await h.close();
+  }
+});
+
+test("applies the same budget pre-flight to an Anthropic call", async () => {
+  const h = await setup({
+    upstream: { flavor: "anthropic" },
+    keyOverrides: { dailyUsdBudget: 0.001, monthlyUsdBudget: undefined },
+  });
+  try {
+    // $0.001 at $3 / 1M output tokens covers 333 tokens. Anthropic requires
+    // max_tokens, so this is the shape a real guarded call takes.
+    const res = await h.post(MESSAGES, { model: "claude-sonnet-5-5", max_tokens: 1000 });
+    assert.equal(res.status, 429);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    assert.equal(body.error.code, "budget_exhausted");
+    assert.match(body.error.message, /covers at most 333 output token/);
+    assert.equal(h.upstream.requests.length, 0);
+    assert.equal(h.store.entries().length, 0);
+  } finally {
+    await h.close();
+  }
+});
+
+test("names the configured flavor when a request arrives on the other dialect's route", async () => {
+  const anthropic = await setup({ upstream: { flavor: "anthropic" } });
+  try {
+    const res = await anthropic.post(CHAT, { model: "claude-sonnet-5-5" });
+    assert.equal(res.status, 404);
+    const body = (await res.json()) as { error: { code: string; message: string } };
+    assert.equal(body.error.code, "wrong_dialect");
+    assert.match(body.error.message, /serves \/v1\/messages/);
+    assert.equal(anthropic.upstream.requests.length, 0);
+  } finally {
+    await anthropic.close();
+  }
+
+  const openai = await setup();
+  try {
+    const res = await openai.post(MESSAGES, { model: "gpt-4o-mini" });
+    assert.equal(res.status, 404);
+    const body = (await res.json()) as { error: { code: string } };
+    assert.equal(body.error.code, "wrong_dialect");
+    assert.equal(openai.upstream.requests.length, 0);
+  } finally {
+    await openai.close();
+  }
+});
+
+test("returns errors in the shape the configured dialect's clients expect", async () => {
+  const anthropic = await setup({ upstream: { flavor: "anthropic" } });
+  try {
+    const wrong = await anthropic.post(CHAT, { model: "claude-sonnet-5-5" });
+    assert.equal(wrong.status, 404);
+    const wrongBody = (await wrong.json()) as { type: string; error: { type: string; code: string } };
+    assert.equal(wrongBody.type, "error");
+    assert.equal(wrongBody.error.type, "not_found_error");
+    assert.equal(wrongBody.error.code, "wrong_dialect");
+
+    const unauth = await anthropic.post(MESSAGES, { model: "claude-sonnet-5-5" }, { authorization: "" });
+    assert.equal(unauth.status, 401);
+    const unauthBody = (await unauth.json()) as { type: string; error: { type: string } };
+    assert.equal(unauthBody.type, "error");
+    assert.equal(unauthBody.error.type, "authentication_error");
+  } finally {
+    await anthropic.close();
+  }
+
+  const openai = await setup();
+  try {
+    const res = await openai.post(CHAT, { model: "gpt-4o-mini" }, { authorization: "" });
+    assert.equal(res.status, 401);
+    const body = (await res.json()) as { error: { type: string }; type?: string };
+    assert.equal(body.error.type, "invalid_request_error");
+    // The OpenAI shape has no top-level `type`; it must not gain one.
+    assert.equal(body.type, undefined);
+  } finally {
+    await openai.close();
   }
 });

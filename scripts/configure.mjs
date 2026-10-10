@@ -80,7 +80,7 @@ console.log(
 
 if (domain && domain !== DEFAULT_DOMAIN) {
   console.log(`Domain set to ${domain}.`);
-  console.log("Reminder: site/CNAME must contain exactly the domain you registered.");
+  console.log("Reminder: set this as the custom domain in Settings -> Pages, and point its DNS at GitHub Pages.");
 }
 
 if (leftovers.length > 0) {

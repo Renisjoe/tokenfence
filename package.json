@@ -1,7 +1,7 @@
 {
   "name": "tokenfence",
   "version": "0.1.0",
-  "description": "An open-source budget guardian for LLM apps: an OpenAI-compatible proxy that enforces per-key token and cost budgets, so one runaway loop cannot run up a bill.",
+  "description": "An open-source budget guardian for LLM apps: a self-hosted proxy for OpenAI and Anthropic APIs that enforces per-key cost budgets, so one runaway loop cannot run up a bill.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -23,6 +23,8 @@
   "keywords": [
     "llm",
     "openai",
+    "anthropic",
+    "claude",
     "proxy",
     "gateway",
     "budget",

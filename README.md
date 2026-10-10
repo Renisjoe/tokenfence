@@ -1,9 +1,10 @@
 # TokenFence
 
-**A budget guardian for LLM calls.** TokenFence is an OpenAI-compatible proxy you
-run in front of a provider. Every call that passes through it is priced and
-written to a local ledger, and a key that has spent its budget gets a `429`
-instead of a surprise invoice.
+**A budget guardian for LLM calls.** TokenFence is a proxy you run in front of a
+provider. Every call that passes through it is priced and written to a local
+ledger, and a key that has spent its budget gets a `429` instead of a surprise
+invoice. It speaks both OpenAI's `chat/completions` dialect and Anthropic's
+`messages` dialect, so one binary guards GPT and Claude traffic.
 
 Nothing about your traffic is stored anywhere but your own disk: no account, no
 telemetry, no hosted component in this version.
@@ -11,9 +12,9 @@ telemetry, no hosted component in this version.
 ```
 $ OPENAI_API_KEY=sk-... tokenfence serve --config tokenfence.config.json
 tokenfence 0.1.0 listening on http://127.0.0.1:8787
-  upstream    https://api.openai.com/v1  (key from OPENAI_API_KEY)
+  upstream    https://api.openai.com/v1  (openai, key from OPENAI_API_KEY)
   ledger      ./tokenfence-usage.json
-  keys        ci ($0.001/day, $20/month)
+  keys        ci ($2/day, $20/month), local ($0.5/day)
   guardrails  max_tokens pre-flight on
 ```
 
@@ -35,7 +36,9 @@ the budget is gone.
 | Per-key budgets | Each key carries an optional daily and monthly ceiling in USD. Whichever runs out first binds. |
 | Refuse instead of warn | Over budget → `429 budget_exhausted`, and the call is never forwarded. |
 | Pre-flight on `max_tokens` | If the remaining budget cannot cover the `max_tokens` the request asked for, it is refused **before** anything is spent. |
-| Prices the call | Reads `usage.prompt_tokens` / `usage.completion_tokens` from the response and prices them from your table. An unlisted model falls back to `defaultPrice` rather than being metered as free. |
+| Two dialects | `upstream.flavor` picks OpenAI `chat/completions` or Anthropic `messages`. Each dialect carries its own route, auth header and usage fields, so one code path guards both. |
+| Prices the call | Reads the provider's own counts — `usage.prompt_tokens` / `usage.completion_tokens` on OpenAI, `usage.input_tokens` / `usage.output_tokens` on Anthropic — and prices them from your table. An unlisted model falls back to `defaultPrice` rather than being metered as free. |
+| Counts Anthropic cache tokens | Anthropic reports cache writes and reads outside `input_tokens`. They are added to the prompt total and surfaced as `x-tokenfence-cache-tokens`, so a cached call is not recorded as nearly free. |
 | Refuses to stream | A streamed response cannot be metered, so `"stream": true` is rejected rather than allowed to spend invisibly. |
 | Honest about gaps | If the provider reports no usage, the call is recorded at zero cost **and** the response carries `x-tokenfence-usage: unavailable`. |
 | Local ledger | Append-only JSON, written atomically (temp file + rename) so a crash cannot leave a half-file that under-counts spend. |
@@ -92,7 +95,7 @@ git clone https://github.com/renisjoe/tokenfence
 cd tokenfence
 npm install
 
-npm run typecheck && npm test        # 41 tests, no API key, no network
+npm run typecheck && npm test        # 58 tests, no API key, no network
 bash scripts/e2e-check.sh            # boots the CLI against a stand-in provider
 
 cp examples/tokenfence.config.json tokenfence.config.json   # then edit it
@@ -113,12 +116,36 @@ curl -sD - -o /dev/null \
 Swap `tf_ci_replace_me` for a real key before you use this anywhere. The example
 keys are placeholders committed to the repo.
 
+### Guarding Claude instead
+
+`examples/tokenfence.anthropic.config.json` is the same tool pointed at
+Anthropic's Messages API, with model IDs and prices taken from Anthropic's
+published pricing page. The route, the auth header and the usage fields all
+change; nothing else does.
+
+```bash
+cp examples/tokenfence.anthropic.config.json tokenfence.config.json
+export ANTHROPIC_API_KEY=sk-ant-...
+npm start
+
+curl -sD - -o /dev/null \
+  -X POST http://127.0.0.1:8787/v1/messages \
+  -H 'content-type: application/json' \
+  -H 'x-tokenfence-key: tf_ci_replace_me' \
+  -d '{"model":"claude-sonnet-5-5","max_tokens":256,"messages":[{"role":"user","content":"hello"}]}'
+```
+
+`max_tokens` is required by Anthropic's API, which makes the pre-flight check
+meaningful on every Claude call rather than only on requests that happen to set
+it.
+
 ## Configuration
 
 ```json
 {
   "listen": { "host": "127.0.0.1", "port": 8787 },
   "upstream": {
+    "flavor": "openai",
     "baseUrl": "https://api.openai.com/v1",
     "apiKeyEnv": "OPENAI_API_KEY",
     "timeoutMs": 60000
@@ -139,7 +166,9 @@ keys are placeholders committed to the repo.
 
 | Field | Meaning |
 | --- | --- |
-| `upstream.baseUrl` | Any OpenAI-compatible base URL. The `/chat/completions` path is appended. |
+| `upstream.flavor` | `"openai"` (default) or `"anthropic"`. Decides which route this instance serves, how the call is authenticated, and which fields carry the token counts. |
+| `upstream.baseUrl` | Base URL of the provider API. The dialect's path — `/chat/completions` or `/messages` — is appended. |
+| `upstream.anthropicVersion` | Sent as the `anthropic-version` header; defaults to `2023-06-01`. Rejected on a non-Anthropic upstream. |
 | `upstream.apiKeyEnv` | **The name of** the environment variable holding the real provider key. The key itself never goes in this file. |
 | `keys[].dailyUsdBudget` / `monthlyUsdBudget` | Omit either for no cap on that window. |
 | `models` | Prices in USD per million tokens. Set these from your provider's current pricing page. |
@@ -149,31 +178,51 @@ keys are placeholders committed to the repo.
 | `maxBodyBytes` | Defaults to 1 MiB; larger request bodies get a `413`. |
 
 Config errors name the exact field — `models.gpt-4o.inputPer1M: expected a finite number`
-rather than "invalid config".
+rather than "invalid config". An unknown `upstream.flavor`, or an
+`anthropicVersion` set on a non-Anthropic upstream, is rejected the same way.
+
+Model prices change. The Claude model IDs and prices in
+`examples/tokenfence.anthropic.config.json` are transcribed from Anthropic's
+published pricing page **as of October 2026** — check them against it before
+trusting the ledger.
 
 ## Endpoints
 
 | Route | Purpose |
 | --- | --- |
-| `POST /v1/chat/completions` | Metered, budget-enforced pass-through. |
+| `POST /v1/chat/completions` | Metered, budget-enforced pass-through. Served when `flavor` is `"openai"`. |
+| `POST /v1/messages` | The same guardrails over Anthropic's dialect. Served when `flavor` is `"anthropic"`. |
 | `GET /v1/usage` | The calling key's own spend and remaining headroom. A key can only see itself. |
 | `GET /healthz` | Liveness, plus the version. |
+
+The route belonging to the *other* dialect returns `404 wrong_dialect` naming the
+configured flavor, rather than forwarding a request body shaped for a different
+API and letting the provider answer with something confusing.
 
 ## How it uses LLM APIs
 
 This is a tool *about* calling model APIs, so it is worth being precise:
 
-- It speaks the **OpenAI chat-completions protocol** in both directions. That is
-  what makes it a drop-in: it forwards the request body unmodified to
-  `{baseUrl}/chat/completions` with `Authorization: Bearer <key from apiKeyEnv>`,
-  and returns the provider's response body unmodified. Because the surface is
-  the de-facto standard rather than one vendor, the same binary fronts OpenAI,
-  Groq, Together, Fireworks, DeepSeek, OpenRouter, a local Ollama or vLLM, or a
-  private gateway — only `baseUrl` changes.
-- It reads `usage.prompt_tokens` and `usage.completion_tokens` from the response
-  and multiplies them by the configured per-million prices. Token accounting is
+- It speaks **two dialects**, forwarding the request body unmodified in both. On
+  `flavor: "openai"` it posts to `{baseUrl}/chat/completions` with
+  `Authorization: Bearer <key from apiKeyEnv>`; on `flavor: "anthropic"` it posts
+  to `{baseUrl}/messages` with `x-api-key` and `anthropic-version`. Either way the
+  provider's response body comes back unmodified. The OpenAI-compatible surface
+  is what makes the first mode a drop-in across OpenAI, Groq, Together,
+  Fireworks, DeepSeek, OpenRouter, a local Ollama or vLLM, or a private gateway —
+  only `baseUrl` changes.
+- It reads the provider's own token counts and multiplies them by the configured
+  per-million prices: `usage.prompt_tokens` / `usage.completion_tokens` on OpenAI,
+  `usage.input_tokens` / `usage.output_tokens` on Anthropic. Token accounting is
   the provider's, not an estimate from a local tokenizer, so the number is the
   one you were billed for.
+- On Anthropic, `input_tokens` covers only the uncached prompt, so cache writes
+  (`cache_creation_input_tokens`) and reads (`cache_read_input_tokens`) are added
+  to the prompt total and reported separately as `x-tokenfence-cache-tokens`.
+  **What is not modelled:** the cache multipliers themselves (1.25× to write,
+  0.1× to read). Every token is counted, so nothing is invisible, but a
+  cache-heavy workload is metered approximately rather than to the cent. Treat
+  the ledger as a guardrail, not an invoice.
 - It holds **no model credentials of its own**. The provider key lives in the
   environment of the TokenFence process; client keys only authorize traffic
   through the fence. A caller that leaks its TokenFence key cannot reach the
@@ -181,8 +230,8 @@ This is a tool *about* calling model APIs, so it is worth being precise:
 - Its own test suite needs none of this: `test/support/fake-upstream.ts` stands
   in for the provider, which is why `npm test` runs with no key and no spend.
 
-Deliberately **not** implemented: Anthropic's `/v1/messages` shape, streaming
-(see above), and any multi-tenant/hosted mode.
+Deliberately **not** implemented: streaming (see above), and any
+multi-tenant/hosted mode.
 
 ## Status
 
@@ -191,15 +240,17 @@ releases, and no package on npm — `npx tokenfence` will not work today, so clo
 it. There are no users to report because this was just built.
 
 What is genuinely verified as of this commit: `npm run typecheck` is clean,
-`npm test` passes 41 tests, and `scripts/e2e-check.sh` boots the real CLI against
-a stand-in provider and checks the whole path — forward, meter, block, report —
-exiting non-zero on any mismatch.
+`npm test` passes 58 tests, and `scripts/e2e-check.sh` boots the real CLI twice —
+once per dialect — against a stand-in provider, checking the whole path:
+forward, meter, block, report, and refuse the other dialect's route. It exits
+non-zero on any mismatch.
 
 Deliberately not built yet, in rough priority order:
 
 - Streaming, with usage reconciliation after the fact, so `stream: true` can be
   allowed without giving up metering.
-- Anthropic's `/v1/messages`, to go with the OpenAI-compatible path.
+- Prompt-cache multipliers in the price table, so cache-heavy Anthropic traffic
+  is priced to the cent instead of approximately.
 - A per-run cost estimate for a batch of prompts, so a job can be quoted before
   it is sent.
 - Threshold warnings and a webhook when a key crosses 80% of its budget.

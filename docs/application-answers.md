@@ -5,34 +5,38 @@ repository actually does today. The pitch itself lives in `docs/pitch.md`.
 
 ## The description
 
-> TokenFence is an open-source budget guardian for LLM applications: an
-> OpenAI-compatible proxy you run in front of a provider, which prices every call
-> from the token usage the provider reports, keeps the running total in a local
-> ledger, and returns HTTP 429 instead of forwarding the next request once a key's
-> daily or monthly dollar budget is spent. It calls any OpenAI-compatible
-> `/chat/completions` endpoint — OpenAI, Groq, Together, Fireworks, DeepSeek,
-> OpenRouter, a local Ollama or vLLM, or a private gateway — holding no
-> credentials of its own and refusing to stream, because a streamed response
-> cannot be metered.
+> TokenFence is an open-source budget guardian for LLM applications: a proxy you
+> run in front of a provider, which prices every call from the token usage the
+> provider reports, keeps the running total in a local ledger, and returns HTTP 429
+> instead of forwarding the next request once a key's daily or monthly dollar
+> budget is spent. It speaks both OpenAI's `/chat/completions` dialect — OpenAI,
+> Groq, Together, Fireworks, DeepSeek, OpenRouter, a local Ollama or vLLM, or a
+> private gateway, by changing one base URL — and Anthropic's `/v1/messages`
+> dialect, holding no credentials of its own and refusing to stream, because a
+> streamed response cannot be metered.
 
 ## How the project uses LLM APIs
 
-- **OpenAI chat-completions in both directions.** The request body is forwarded
-  unmodified to `{baseUrl}/chat/completions` with `Authorization: Bearer <key>`,
-  and the provider's response is returned unmodified. Because the surface is the
-  de-facto standard rather than one vendor's, only `baseUrl` changes between
-  providers.
-- **Real provider token counts, not estimates.** `usage.prompt_tokens` and
-  `usage.completion_tokens` from the response are multiplied by a configured
-  per-million-token price table, with a default for unlisted models.
+- **Two dialects, both forwarded unmodified.** `upstream.flavor: "openai"` posts
+  to `{baseUrl}/chat/completions` with `Authorization: Bearer <key>`;
+  `"anthropic"` posts to `{baseUrl}/messages` with `x-api-key` and
+  `anthropic-version`. The provider's response comes back unmodified either way.
+  The OpenAI-compatible surface is the de-facto standard rather than one vendor's,
+  so only `baseUrl` changes between those providers.
+- **Real provider token counts, not estimates.** `usage.prompt_tokens` /
+  `usage.completion_tokens` on OpenAI, `usage.input_tokens` /
+  `usage.output_tokens` on Anthropic, multiplied by a configured
+  per-million-token price table with a default for unlisted models. On Anthropic,
+  cache writes and reads are added to the prompt total because they sit outside
+  `input_tokens`.
 - **A guardrail that runs before the call.** If the remaining budget cannot cover
   the `max_tokens` a request asks for, the request is refused before it is sent.
 - **Nothing leaves the machine.** The ledger is a local JSON file; there is no
   account, no telemetry, and no hosted component. The provider key lives in the
   TokenFence process's environment, never in the config file.
 - **The test suite needs no provider at all.** A local stand-in
-  (`test/support/fake-upstream.ts`) means all 41 tests run offline with no key and
-  no spend.
+  (`test/support/fake-upstream.ts`) answers in both dialects, so all 58 tests run
+  offline with no key and no spend.
 
 ## What credits would be used for
 
@@ -62,8 +66,40 @@ produces.
 | Revenue | None. MIT, no paid tier. |
 | Published package | No. Not on npm; it runs from a clone. |
 | Traction / metrics | None to report. |
-| Tests | 41 passing, plus an end-to-end script that boots the CLI against a stand-in provider. |
+| Tests | 58 passing, plus an end-to-end script that boots the CLI once per dialect against a stand-in provider. |
 | Hosted service | None. Self-hosted only. |
+
+## Order of operations
+
+The program asks for "a Claude Console account, a company email that matches your
+website's domain, and a short description of what you're building". Those depend
+on each other, so the sequence matters:
+
+1. The **domain** exists (eu.org approval).
+2. The **mailbox** exists at that domain — see `setup-domain-and-email.md`.
+3. Create the **Claude Console account using the domain address**, not a personal
+   one. You cannot register with an address that does not exist yet, and changing
+   an account's email later is avoidable friction.
+4. **Apply** from that address.
+
+Registering the Console account early with an `@gmail.com` or `@outlook.com`
+address buys nothing: the company email is a stated requirement, and it has to
+match the same domain the website is served from. Both halves point at the
+domain, which is why nothing here can be short-circuited before step 1.
+
+**Which address to apply from.** Any local part satisfies the requirement,
+because what gets checked is the domain, not the name before the `@`. They differ
+only in what they signal:
+
+| Address | Reads as |
+| --- | --- |
+| `harshit@tokenfence.eu.org` | The founder. Strongest for a founder-led application, since it names a real person at the company's own domain. |
+| `hello@tokenfence.eu.org` | A modern startup's general inbox. Neutral and deliberate. |
+| `contact@tokenfence.eu.org` | A generic business-enquiries address. Reads slightly more impersonal on a one-person project. |
+
+Zoho Forever Free allows up to five addresses on the domain, so this is not a
+trade-off: create the founder address for applying, and keep `hello@` as the
+address published on the site and in the repository.
 
 ## Guardrails — do not inflate these
 
@@ -79,8 +115,11 @@ Concretely, avoid:
 - Implying a hosted product or a dashboard exists. There is a static landing page
   and a CLI.
 - Implying npm distribution. `npx tokenfence` does not work today.
-- Implying streaming or Anthropic support. Both are documented as absent, and the
-  streaming refusal is a deliberate design decision worth stating as one.
+- Implying streaming support. It is documented as absent, and the refusal is a
+  deliberate design decision worth stating as one.
+- Implying the ledger is invoice-accurate. Anthropic's prompt-cache multipliers
+  (1.25× to write, 0.1× to read) are not modelled: every token is counted, but
+  cache-heavy traffic is metered approximately.
 - Naming company logos as integrations. The README says "OpenAI-compatible";
   that is a protocol, not a partnership.
 - Quoting the example prices in `examples/tokenfence.config.json` as current

@@ -117,3 +117,56 @@ test("reports a missing config file instead of throwing ENOENT at the caller", (
   const missing = join(tmpdir(), "tokenfence-definitely-missing", "tokenfence.config.json");
   assert.throws(() => loadConfig(missing), /could not read .*tokenfence\.config\.json/);
 });
+
+test("defaults the upstream flavor to openai so existing configs keep working", () => {
+  const config = parseConfig(minimal(), SOURCE);
+  assert.equal(config.upstream.flavor, "openai");
+  assert.equal(config.upstream.anthropicVersion, "2023-06-01");
+});
+
+test("accepts an anthropic upstream and keeps the version header configurable", () => {
+  const config = parseConfig(
+    minimal({
+      upstream: {
+        flavor: "anthropic",
+        baseUrl: "https://api.anthropic.com/v1",
+        apiKeyEnv: "ANTHROPIC_API_KEY",
+        anthropicVersion: "2025-01-01",
+      },
+    }),
+    SOURCE,
+  );
+
+  assert.equal(config.upstream.flavor, "anthropic");
+  assert.equal(config.upstream.baseUrl, "https://api.anthropic.com/v1");
+  assert.equal(config.upstream.anthropicVersion, "2025-01-01");
+});
+
+test("rejects an unknown upstream flavor and names the two it accepts", () => {
+  assert.throws(
+    () =>
+      parseConfig(
+        minimal({ upstream: { flavor: "gemini", baseUrl: "https://example.com/v1", apiKeyEnv: "K" } }),
+        SOURCE,
+      ),
+    /upstream\.flavor: expected "openai" or "anthropic", got "gemini"/,
+  );
+});
+
+test("rejects an anthropic-version header on a non-Anthropic upstream", () => {
+  assert.throws(
+    () =>
+      parseConfig(
+        minimal({
+          upstream: {
+            flavor: "openai",
+            baseUrl: "https://api.openai.com/v1",
+            apiKeyEnv: "K",
+            anthropicVersion: "2023-06-01",
+          },
+        }),
+        SOURCE,
+      ),
+    /upstream\.anthropicVersion: only applies when upstream\.flavor is "anthropic"/,
+  );
+});

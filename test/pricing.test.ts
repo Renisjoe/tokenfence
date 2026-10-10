@@ -7,7 +7,13 @@ import type { TokenFenceConfig } from "../src/types.ts";
 function configWith(models: Record<string, { inputPer1M: number; outputPer1M: number }>): TokenFenceConfig {
   return {
     listen: { host: "127.0.0.1", port: 0 },
-    upstream: { baseUrl: "https://example.com/v1", apiKeyEnv: "K", timeoutMs: 1000 },
+    upstream: {
+      flavor: "openai",
+      baseUrl: "https://example.com/v1",
+      apiKeyEnv: "K",
+      timeoutMs: 1000,
+      anthropicVersion: "2023-06-01",
+    },
     keys: [{ name: "dev", key: "k" }],
     models,
     defaultPrice: { inputPer1M: 10, outputPer1M: 30 },
