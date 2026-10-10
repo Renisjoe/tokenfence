@@ -6,7 +6,7 @@ Current target: **InfinityFree for the static landing page**, **tokenfence-proxy
 
 InfinityFree will serve the static files in **site/**. It will **not** run the TokenFence Node.js proxy itself; this hosting account is only for the project's landing page and documentation.
 
-The repository includes a guarded GitHub Actions workflow at **.github/workflows/infinityfree.yml**. It uploads **site/** to **/htdocs/** over explicit FTPS on port 21. The job stays skipped until the repository variable **INFINITYFREE_DEPLOY_ENABLED** is set to **true**.
+The repository includes a guarded GitHub Actions workflow at **.github/workflows/infinityfree.yml**. It uploads **site/** to **/htdocs/** over explicit FTPS on port 21. While this migration is staged, it accepts pushes to **main** and **codex/infinityfree-zoho-migration**. Remove the temporary branch entry after the migration branch is merged. The job stays skipped until the repository variable **INFINITYFREE_DEPLOY_ENABLED** is set to **true**.
 
 ## Important DNS correction
 
@@ -75,7 +75,7 @@ Do not add Zoho TXT or MX records in the InfinityFree control panel. They belong
 
 - Netlify auto-publishing is locked and its GitHub repository connection has been removed. Its last published preview may still be reachable, but new GitHub pushes will not build or publish there.
 - GitHub Pages remains configured as the existing fallback until InfinityFree and the custom domain are verified.
-- The domain still needs to be registered, and the InfinityFree/Zoho account values must come from their respective dashboards before the workflow can run.
+- The InfinityFree staging account is active and its FTP secrets and deploy-enable variable are configured in GitHub. The custom domain **tokenfence-proxy.dev** still needs to be registered; DNS, HTTPS, and Zoho Mail must wait for that purchase.
 
 ## References
 

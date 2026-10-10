@@ -2,7 +2,10 @@ name: Deploy site to InfinityFree
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      # Temporary staging branch while the custom domain is being registered.
+      - codex/infinityfree-zoho-migration
     paths:
       - "site/**"
       - ".github/workflows/infinityfree.yml"
@@ -19,7 +22,10 @@ jobs:
   deploy:
     # Add the FTP secrets first, then set this repository variable to "true".
     # Until then this job is skipped and cannot fail on missing credentials.
-    if: vars.INFINITYFREE_DEPLOY_ENABLED == 'true' && github.ref == 'refs/heads/main'
+    if: >-
+      vars.INFINITYFREE_DEPLOY_ENABLED == 'true' &&
+      (github.ref == 'refs/heads/main' ||
+       github.ref == 'refs/heads/codex/infinityfree-zoho-migration')
     runs-on: ubuntu-latest
     steps:
       - name: Check out site
